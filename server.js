@@ -13,15 +13,17 @@ let rooms = {};
 io.on('connection', (socket) => {
   console.log('Jugador conectado:', socket.id);
 
-  socket.on('joinRoom', ({ roomId, playerName }) => {
+  // Maneja la entrada de un jugador (incluye bots)
+  socket.on('joinRoom', ({ roomId, playerName, bot }) => {
     if (!rooms[roomId]) rooms[roomId] = [];
-    rooms[roomId].push({ id: socket.id, name: playerName });
+    rooms[roomId].push({ id: socket.id, name: playerName, bot: bot || false });
     socket.join(roomId);
     io.to(roomId).emit('playerList', rooms[roomId]);
   });
 
+  // Inicia la partida y reparte fichas
   socket.on('empezarPartida', ({ roomId }) => {
-    // Crear las 20 fichas totales (0–9, con sus colores)
+    // Genera las 20 fichas únicas del juego
     let fichas = [];
     for (let n = 0; n <= 9; n++) {
       if (n === 5) {
@@ -31,26 +33,24 @@ io.on('connection', (socket) => {
         fichas.push({ numero: n, color: 'blanco' });
       }
     }
-
-    // Barajar fichas
+    // Mezcla las fichas
     fichas.sort(() => Math.random() - 0.5);
 
     const jugadoresSala = rooms[roomId] || [];
     const totalJugadores = jugadoresSala.length;
 
-    // Repartir 5 fichas por jugador
+    // Reparte 5 fichas por jugador
     const jugadoresEstado = jugadoresSala.map(j => {
       const mano = fichas.splice(0, 5);
       mano.sort((a, b) => {
         if (a.numero === b.numero) return a.color === 'negro' ? -1 : 1;
         return a.numero - b.numero;
       });
-      return { id: j.id, name: j.name, codigo: mano };
+      return { id: j.id, name: j.name, bot: j.bot, codigo: mano };
     });
 
-    // Calcular las fichas restantes como código central
+    // Calcula las fichas restantes como código central (para 3 jugadores)
     let codigoCentral = null;
-    // Si hay 3 jugadores, deberían quedar exactamente 5 fichas sin repartir
     if (totalJugadores === 3 && fichas.length === 5) {
       codigoCentral = fichas.sort((a, b) => {
         if (a.numero === b.numero) return a.color === 'negro' ? -1 : 1;
@@ -58,28 +58,16 @@ io.on('connection', (socket) => {
       });
     }
 
-    // Debug para confirmar en consola
-    console.log('Fichas restantes:', fichas);
-    console.log('Código central generado:', codigoCentral?.map(f => f.numero));
-
-    // Enviar el estado al cliente
     io.to(roomId).emit('partidaEmpezada', { jugadoresEstado, codigoCentral });
   });
 
   socket.on('disconnect', () => {
-    for (const roomId in rooms) {
+    Object.keys(rooms).forEach(roomId => {
       rooms[roomId] = rooms[roomId].filter(p => p.id !== socket.id);
       io.to(roomId).emit('playerList', rooms[roomId]);
-    }
+    });
     console.log('Jugador desconectado:', socket.id);
   });
-});
-
-socket.on('joinRoom', ({ roomId, playerName, bot }) => {
-  if (!rooms[roomId]) rooms[roomId] = [];
-  rooms[roomId].push({ id: socket.id, name: playerName, bot: bot || false });
-  socket.join(roomId);
-  io.to(roomId).emit('playerList', rooms[roomId]);
 });
 
 server.listen(3000, () =>
