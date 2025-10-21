@@ -13,7 +13,6 @@ let rooms = {};
 io.on('connection', (socket) => {
   console.log('Jugador conectado:', socket.id);
 
-  // Maneja la entrada de un jugador (incluye bots)
   socket.on('joinRoom', ({ roomId, playerName, bot }) => {
     if (!rooms[roomId]) rooms[roomId] = [];
     rooms[roomId].push({ id: socket.id, name: playerName, bot: bot || false });
@@ -21,9 +20,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('playerList', rooms[roomId]);
   });
 
-  // Inicia la partida y reparte fichas
   socket.on('empezarPartida', ({ roomId }) => {
-    // Genera las 20 fichas únicas del juego
     let fichas = [];
     for (let n = 0; n <= 9; n++) {
       if (n === 5) {
@@ -33,13 +30,24 @@ io.on('connection', (socket) => {
         fichas.push({ numero: n, color: 'blanco' });
       }
     }
-    // Mezcla las fichas
     fichas.sort(() => Math.random() - 0.5);
 
-    const jugadoresSala = rooms[roomId] || [];
+    let jugadoresSala = rooms[roomId] || [];
+
+    // Añade un bot automáticamente cuando hay exactamente 3 humanos
+    const jugadoresHumanos = jugadoresSala.filter(j => !j.bot);
+    if (jugadoresHumanos.length === 3 && jugadoresSala.length === 3) {
+      jugadoresSala.push({
+        id: 'bot-auto-' + Math.floor(Math.random() * 10000),
+        name: 'BOT-MAESTRO',
+        bot: true
+      });
+      rooms[roomId] = jugadoresSala;
+      io.to(roomId).emit('playerList', rooms[roomId]);
+    }
+
     const totalJugadores = jugadoresSala.length;
 
-    // Reparte 5 fichas por jugador
     const jugadoresEstado = jugadoresSala.map(j => {
       const mano = fichas.splice(0, 5);
       mano.sort((a, b) => {
@@ -49,16 +57,14 @@ io.on('connection', (socket) => {
       return { id: j.id, name: j.name, bot: j.bot, codigo: mano };
     });
 
-    // Calcula las fichas restantes como código central (para 3 jugadores)
+    // Cuando hay bot, no hay código central. El objetivo es adivinar el código del bot.
     let codigoCentral = null;
-    if (totalJugadores === 3 && fichas.length === 5) {
-      codigoCentral = fichas.sort((a, b) => {
-        if (a.numero === b.numero) return a.color === 'negro' ? -1 : 1;
-        return a.numero - b.numero;
-      });
+    let objetivoBot = false;
+    if (jugadoresEstado.some(j => j.bot) && totalJugadores === 4) {
+      objetivoBot = true;
     }
 
-    io.to(roomId).emit('partidaEmpezada', { jugadoresEstado, codigoCentral });
+    io.to(roomId).emit('partidaEmpezada', { jugadoresEstado, codigoCentral, objetivoBot });
   });
 
   socket.on('disconnect', () => {
