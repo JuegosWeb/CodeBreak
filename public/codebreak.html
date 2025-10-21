@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Juego de Descifrar el Código</title>
+  <style>
+body {
+  font-family: Arial, sans-serif; 
+  padding: 20px; 
+  background: #f2f3f7;
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  min-height: 100vh; 
+}
+
+#gameContainer {
+  background: #fff;
+  padding: 32px 40px;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px 0 #0002;
+  min-width: 320px;
+  max-width: 420px;
+  margin: auto;
+}
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .ficha { 
+      display: inline-block; width: 32px; height: 32px; 
+      margin: 2px; text-align: center; line-height: 32px;
+      border-radius: 6px; font-weight: bold; font-size: 18px;
+      border: 2px solid #ccc;
+    }
+    .negro { background: #222; color: #fff; }
+    .blanco { background: #fff; color: #222; border-color: #999;}
+    .verde { background: #3a3; color: #fff; }
+    .jugador { margin-bottom: 12px; }
+    .oculto { filter: blur(6px); }
+    #preguntas, .boton { margin: 7px 0;}
+    button { padding:6px 12px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h2>Juego de Descifrar el Código</h2>
+  <div id="setup">
+    <label>Jugadores: 
+      <select id="numJugadores">
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+    </label>
+    <button onclick="iniciarJuego()">Iniciar juego</button>
+  </div>
+  <div id="tablero" style="display:none;"></div>
+  <div id="acciones" style="display:none;">
+    <div id="turnoActual"></div>
+    <div id="preguntas">
+      <button onclick="preguntar('suma')">¿Cuánto suman tus números?</button>
+      <button onclick="preguntar('central')">¿Qué número tienes en el centro?</button>
+    </div>
+    <button onclick="plantarse()">Plantarse</button>
+    <div id="respuestas"></div>
+  </div>
+  <script>
+    let jugadores = [], turno = 0, plantado = null;
+
+    function crearFichas() {
+      let fichas = [];
+      for(let n=0; n<=9; n++) {
+        if(n===5) {
+          fichas.push({numero:5, color:'verde'});
+        } else {
+          fichas.push({numero:n, color:'negro'});
+          fichas.push({numero:n, color:'blanco'});
+        }
+      }
+      return fichas;
+    }
+
+    function barajar(array) {
+      for(let i=array.length-1; i>0; i--) {
+        let j = Math.floor(Math.random()*(i+1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    function iniciarJuego() {
+      let num = parseInt(document.getElementById('numJugadores').value);
+      jugadores = [];
+      let fichas = crearFichas();
+      barajar(fichas);
+      for(let i=0; i<num; i++) {
+        let mano = fichas.splice(0,5);
+        mano.sort((a,b)=>{
+          if(a.numero===b.numero) return a.color==='negro'?-1:1;
+          return a.numero-b.numero;
+        });
+        jugadores.push({nombre:`Jugador ${i+1}`, codigo:mano});
+      }
+      turno = 0; plantado = null;
+      document.getElementById('setup').style.display = 'none';
+      mostrarTablero();
+      mostrarTurno();
+      document.getElementById('acciones').style.display = '';
+    }
+
+    function mostrarTablero() {
+      let html = '';
+      jugadores.forEach((j,i)=>{
+        html += `<div class="jugador"><b>${j.nombre}:</b> `;
+        j.codigo.forEach((f, idx)=>{
+          let c = f.color;
+          let hidden = (plantado===null && i!==turno) ? 'oculto' : '';
+          html += `<span class="ficha ${c} ${hidden}">${f.numero}</span>`;
+        });
+        html += `</div>`;
+      });
+      document.getElementById('tablero').innerHTML = html;
+      document.getElementById('tablero').style.display = '';
+    }
+
+    function mostrarTurno() {
+      let nombre = jugadores[turno].nombre;
+      document.getElementById('turnoActual').textContent =
+        `Turno de: ${nombre}`;
+      document.getElementById('respuestas').textContent = '';
+    }
+
+    function preguntar(tipo) {
+      let preguntas = {
+        suma: j => j.codigo.reduce((s,f)=>s+f.numero,0),
+        central: j => j.codigo[Math.floor(j.codigo.length/2)].numero
+      };
+      let preguntasTxt = {
+        suma: "¿Cuánto suman tus números?",
+        central: "¿Qué número tienes en el centro?"
+      };
+      let res = `<b>${preguntasTxt[tipo]}</b> <br>`;
+      jugadores.forEach((j,i)=>{
+        if(i !== turno) {
+          res += `<i>${j.nombre}:</i> ${preguntas[tipo](j)}<br>`;
+        }
+      });
+      document.getElementById('respuestas').innerHTML = res;
+      avanzarTurno();
+    }
+
+    function avanzarTurno() {
+      turno = (turno+1)%jugadores.length;
+      mostrarTurno();
+    }
+
+    function plantarse() {
+      plantado = turno; // Guarda quién se plantó
+      mostrarTablero(); // Muestra su código
+      document.getElementById('acciones').style.display = 'none';
+      let nombre = jugadores[plantado].nombre;
+      document.getElementById('tablero').innerHTML += 
+        `<div style="color:green;font-size:22px;"><b>${nombre} se ha plantado.<br>¡Fin del juego!</b></div>`;
+    }
+  </script>
+</body>
+</html>
