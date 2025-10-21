@@ -2,23 +2,50 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Descifrar el Código</title>
+  <title>Descifra el Código</title>
   <style>
-    body {display:flex;justify-content:center;align-items:center;min-height:100vh;background:#eef;font-family:Arial,sans-serif;}
-    #gameContainer {background:white;padding:30px;border-radius:12px;box-shadow:0 2px 12px #0003;width:440px;}
-    .ficha { display: inline-block; width:32px; height:32px; margin:2px; border-radius:8px;
-      text-align:center; line-height:32px; font-weight:bold; font-size:18px; }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #eef;
+      font-family: Arial, sans-serif;
+      margin: 0;
+    }
+    #gameContainer {
+      background: white;
+      padding: 25px 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px #0003;
+      width: 440px;
+    }
+    h2 {
+      margin: 0 0 15px 0;
+      text-align: center;
+    }
+    .ficha {
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      margin: 2px;
+      border-radius: 8px;
+      text-align: center;
+      line-height: 32px;
+      font-weight: bold;
+      font-size: 18px;
+    }
     .negro { background: #222; color: #fff; }
-    .blanco { background: #fff; color: #222; border:1px solid #888;}
+    .blanco { background: #fff; color: #222; border: 1px solid #888; }
     .verde { background: #3a3; color: #fff; }
-    .jugador {margin-bottom:18px;}
-    .oculta { background:#bbb; color:#888; font-size:20px;}
+    .oculta { background: #bbb; color: #888; font-size: 20px; }
+    .jugador { margin-bottom: 16px; }
   </style>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
 <div id="gameContainer">
-  <h2>Descifrar el Código</h2>
+  <h2>Descifra el Código</h2>
   <input id="playerName" placeholder="Tu nombre"><br><br>
   <input id="roomId" placeholder="ID de sala (ej. sala1)"><br><br>
   <button id="btnEntrar" onclick="joinRoom()">Entrar a la sala</button>
@@ -26,6 +53,7 @@
   <div id="status"></div>
   <div id="tablero"></div>
 </div>
+
 <script>
 let roomId, playerName, myId, jugadores = [], jugadoresEstadoGlobal = [], codigoCentralGlobal = null;
 
@@ -41,9 +69,7 @@ function joinRoom(){
   document.getElementById('status').innerText = `Esperando jugadores en ${roomId}...`;
 }
 
-socket.on('connect', () => {
-  myId = socket.id;
-});
+socket.on('connect', () => { myId = socket.id; });
 
 socket.on('playerList', pjs => {
   jugadores = pjs;
@@ -51,9 +77,7 @@ socket.on('playerList', pjs => {
   document.getElementById("btnEmpezar").style.display = jugadores.length >= 2 ? "" : "none";
 });
 
-function empezarPartida() {
-  socket.emit('empezarPartida', { roomId });
-}
+function empezarPartida() { socket.emit('empezarPartida', { roomId }); }
 
 socket.on('partidaEmpezada', ({ jugadoresEstado, codigoCentral }) => {
   document.getElementById("btnEmpezar").style.display = "none";
@@ -77,7 +101,6 @@ function mostrarTablero(jugadoresEstado, codigoCentral) {
     html += '</div>';
   });
 
-  // Para 2 jugadores: adivina el código rival
   if (jugadoresEstado.length === 2) {
     let rival = jugadoresEstado.find(j => j.id !== myId);
     html += `
@@ -90,15 +113,15 @@ function mostrarTablero(jugadoresEstado, codigoCentral) {
     `;
   }
 
-  // Para 3 jugadores: adivina el código central
+  // Adivinanza del código central para 3 jugadores (siempre 5 fichas)
   if (jugadoresEstado.length === 3 && codigoCentral && codigoCentral.length > 0) {
     html += `
-      <div style="margin:18px 0;">
-        <label><u>Las fichas restantes forman el código central:</u></label>
+      <div style="margin:18px 0 10px 0;">
+        <u>Las fichas restantes forman el código central.</u>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;margin-top:10px;">
-        <label for="codigoCentral"><b>Tu intento del código central:</b></label>
-        <input id="codigoCentral" type="text" maxlength="${codigoCentral.length}" style="width:120px;padding:6px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <label for="codigoCentral"><b>Tu intento del código central (5 dígitos):</b></label>
+        <input id="codigoCentral" type="text" maxlength="5" style="width:140px;padding:6px;">
         <button onclick="enviarIntentoCentral()">Enviar</button>
         <span id="resultadoCentral"></span>
       </div>
