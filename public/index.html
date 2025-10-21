@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Descifrar el Código</title>
+  <style>
+    body {display:flex;justify-content:center;align-items:center;min-height:100vh;background:#eef;font-family:Arial,sans-serif;}
+    #gameContainer {background:white;padding:30px;border-radius:12px;box-shadow:0 2px 12px #0003;width:380px;}
+  </style>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <div id="gameContainer">
+    <h2>Descifrar el Código</h2>
+    <input id="playerName" placeholder="Tu nombre"> <br><br>
+    <input id="roomId" placeholder="ID de sala (ej. sala1)"> <br><br>
+    <button onclick="joinRoom()">Entrar a la sala</button>
+    <div id="status"></div>
+  </div>
+  <script>
+    const socket = io();
+    function joinRoom(){
+      const name = document.getElementById('playerName').value;
+      const room = document.getElementById('roomId').value;
+      socket.emit('joinRoom', {roomId:room, playerName:name});
+      document.getElementById('status').innerText = `Esperando jugadores en ${room}...`;
+    }
+    socket.on('playerList', players => {
+      document.getElementById('status').innerHTML = 'Jugadores conectados:<br>' + players.map(p=>p.name).join('<br>');
+    });
+  </script>
+</body>
+</html>
