@@ -40,6 +40,7 @@
     .verde { background: #3a3; color: #fff; }
     .oculta { background: #bbb; color: #888; font-size: 20px; }
     .jugador { margin-bottom: 16px; }
+    button { cursor:pointer; }
   </style>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
@@ -87,6 +88,7 @@ socket.on('partidaEmpezada', ({ jugadoresEstado, codigoCentral }) => {
   mostrarTablero(jugadoresEstadoGlobal, codigoCentralGlobal);
 });
 
+// Esta función SIEMPRE se llama luego de cualquier evento y pone los botones
 function mostrarTablero(jugadoresEstado, codigoCentral) {
   let html = `<h3>Tablero</h3>`;
   jugadoresEstado.forEach(j => {
@@ -135,6 +137,21 @@ function mostrarTablero(jugadoresEstado, codigoCentral) {
   document.getElementById('tablero').innerHTML = html;
 }
 
+function enviarIntentoCodigo() {
+  let rivalData = jugadoresEstadoGlobal.find(j => j.id !== myId);
+  let codigoReal = rivalData.codigo.map(f => f.numero).join('');
+  let intento = document.getElementById('codigoAdivinar') ? document.getElementById('codigoAdivinar').value : "";
+  let res = (intento === codigoReal) ? "¡Adivinaste el código!" : "No es correcto.";
+  document.getElementById('resultadoIntento').textContent = res;
+}
+
+function enviarIntentoCentral() {
+  let codigoReal = codigoCentralGlobal.map(f => f.numero).join('');
+  let intento = document.getElementById('codigoCentral') ? document.getElementById('codigoCentral').value : "";
+  let res = (intento === codigoReal) ? "¡Adivinaste el código central!" : "No es correcto.";
+  document.getElementById('resultadoCentral').textContent = res;
+}
+
 function revelarCodigoCentral() {
   if (!codigoCentralGlobal || codigoCentralGlobal.length === 0) {
     document.getElementById('revelacionCentral').textContent = 'No hay código central.';
@@ -142,21 +159,6 @@ function revelarCodigoCentral() {
   }
   let cod = codigoCentralGlobal.map(f => f.numero).join('');
   document.getElementById('revelacionCentral').textContent = `Código central: ${cod}`;
-}
-
-function enviarIntentoCodigo() {
-  let rivalData = jugadoresEstadoGlobal.find(j => j.id !== myId);
-  let codigoReal = rivalData.codigo.map(f => f.numero).join('');
-  let intento = document.getElementById('codigoAdivinar').value;
-  let res = (intento === codigoReal) ? "¡Adivinaste el código!" : "No es correcto.";
-  document.getElementById('resultadoIntento').textContent = res;
-}
-
-function enviarIntentoCentral() {
-  let codigoReal = codigoCentralGlobal.map(f => f.numero).join('');
-  let intento = document.getElementById('codigoCentral').value;
-  let res = (intento === codigoReal) ? "¡Adivinaste el código central!" : "No es correcto.";
-  document.getElementById('resultadoCentral').textContent = res;
 }
 </script>
 </body>
