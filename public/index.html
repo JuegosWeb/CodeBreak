@@ -2,59 +2,101 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>CodeBreak</title>
+  <title>Descifrar el Código</title>
   <style>
     body {display:flex;justify-content:center;align-items:center;min-height:100vh;background:#eef;font-family:Arial,sans-serif;}
-    #gameContainer {background:white;padding:30px;border-radius:12px;box-shadow:0 2px 12px #0003;width:380px;}
+    #gameContainer {background:white;padding:30px;border-radius:12px;box-shadow:0 2px 12px #0003;width:440px;}
+    .ficha { display: inline-block; width:32px; height:32px; margin:2px; border-radius:8px;
+      text-align:center; line-height:32px; font-weight:bold; font-size:18px; }
+    .negro { background: #222; color: #fff; }
+    .blanco { background: #fff; color: #222; border:1px solid #888;}
+    .verde { background: #3a3; color: #fff; }
+    .jugador {margin-bottom:18px;}
   </style>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-  <div id="gameContainer">
-    <h2>Descifrar el Código</h2>
-    <input id="playerName" placeholder="Tu nombre"><br><br>
-    <input id="roomId" placeholder="ID de sala (ej. sala1)"><br><br>
-    <button id="btnEntrar" onclick="joinRoom()">Entrar a la sala</button>
-    <button id="btnEmpezar" onclick="empezarPartida()" style="display:none;">Empezar partida</button>
-    <div id="status"></div>
-  </div>
-  <script>
-    let roomId;
-    const socket = io();
+<div id="gameContainer">
+  <h2>Descifrar el Código</h2>
+  <input id="playerName" placeholder="Tu nombre"><br><br>
+  <input id="roomId" placeholder="ID de sala (ej. sala1)"><br><br>
+  <button id="btnEntrar" onclick="joinRoom()">Entrar a la sala</button>
+  <button id="btnEmpezar" onclick="empezarPartida()" style="display:none;">Empezar partida</button>
+  <div id="status"></div>
+  <div id="tablero"></div>
+</div>
+<script>
+let roomId, playerName, myId, jugadores = [], jugadoresEstadoGlobal = [];
 
-    function joinRoom(){
-      const name = document.getElementById('playerName').value;
-      roomId = document.getElementById('roomId').value;
-      socket.emit('joinRoom', { roomId, playerName: name });
+const socket = io();
 
-      // Oculta entrada al unirse
-      document.getElementById('playerName').style.display = 'none';
-      document.getElementById('roomId').style.display = 'none';
-      document.getElementById('btnEntrar').style.display = 'none';
-      document.getElementById('status').innerText = `Esperando jugadores en ${roomId}...`;
-    }
+function joinRoom(){
+  playerName = document.getElementById('playerName').value;
+  roomId = document.getElementById('roomId').value;
+  socket.emit('joinRoom', { roomId, playerName });
+  document.getElementById('playerName').style.display = 'none';
+  document.getElementById('roomId').style.display = 'none';
+  document.getElementById('btnEntrar').style.display = 'none';
+  document.getElementById('status').innerText = `Esperando jugadores en ${roomId}...`;
+}
 
-    // Recibe lista de jugadores y muestra botón "Empezar partida" según el mínimo
-    socket.on('playerList', players => {
-      document.getElementById('status').innerHTML = 'Jugadores conectados:<br>' + players.map(p=>p.name).join('<br>');
-      if (players.length >= 2) {
-        document.getElementById("btnEmpezar").style.display = "";
-      } else {
-        document.getElementById("btnEmpezar").style.display = "none";
-      }
+socket.on('connect', () => {
+  myId = socket.id;
+});
+
+socket.on('playerList', pjs => {
+  jugadores = pjs;
+  document.getElementById('status').innerHTML = 'Jugadores conectados:<br>' + jugadores.map(p=>p.name).join('<br>');
+  document.getElementById("btnEmpezar").style.display = jugadores.length >= 2 ? "" : "none";
+});
+
+function empezarPartida() {
+  socket.emit('empezarPartida', { roomId });
+}
+
+socket.on('partidaEmpezada', ({ jugadoresEstado }) => {
+  document.getElementById("btnEmpezar").style.display = "none";
+  document.getElementById('status').innerText = '¡La partida ha comenzado!';
+  jugadoresEstadoGlobal = jugadoresEstado;
+  mostrarTablero(jugadoresEstadoGlobal);
+});
+
+function mostrarTablero(jugadoresEstado) {
+  let html = `<h3>Tablero</h3>`;
+  jugadoresEstado.forEach(j => {
+    html += `<div class="jugador"><b>${j.name}:</b> `;
+    j.codigo.forEach(f => {
+      let c = f.color;
+      let visible = (j.id === myId) ? '' : 'style="filter:blur(6px);"';
+      html += `<span class="ficha ${c}" ${visible}>${f.numero}</span>`;
     });
+    html += '</div>';
+  });
 
-    function empezarPartida() {
-      socket.emit('empezarPartida', { roomId });
-    }
+  // Entrada para adivinar el código de otro jugador (para 2 jugadores)
+  if (jugadoresEstado.length === 2) {
+    // Busca nombre contrario
+    let rival = jugadoresEstado.find(j => j.id !== myId);
+    html += `
+      <div style="display:flex;align-items:center;gap:12px;margin-top:20px;">
+        <label for="codigoAdivinar"><b>Tu intento del código de ${rival.name}:</b></label>
+        <input id="codigoAdivinar" type="text" maxlength="9" style="width:140px;padding:6px;">
+        <button onclick="enviarIntentoCodigo()">Enviar</button>
+        <span id="resultadoIntento"></span>
+      </div>
+    `;
+  }
 
-    socket.on('partidaEmpezada', ({ iniciado }) => {
-      if (iniciado) {
-        document.getElementById("btnEmpezar").style.display = "none";
-        // Aquí inicia el juego, muestra tablero, etc.
-        document.getElementById('status').innerText = '¡La partida ha comenzado!';
-      }
-    });
-  </script>
+  document.getElementById('tablero').innerHTML = html;
+}
+
+function enviarIntentoCodigo() {
+  let rivalData = jugadoresEstadoGlobal.find(j => j.id !== myId);
+  let codigoReal = rivalData.codigo.map(f => f.numero).join('');
+  let intento = document.getElementById('codigoAdivinar').value;
+  let res = (intento === codigoReal) ? "¡Adivinaste el código!" : "No es correcto.";
+  document.getElementById('resultadoIntento').textContent = res;
+}
+</script>
 </body>
 </html>
