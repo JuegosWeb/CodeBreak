@@ -36,18 +36,19 @@ io.on('connection', (socket) => {
     let jugadoresEstado = jugadoresSala.map(j => {
       let mano = fichas.splice(0,5);
       mano.sort((a,b)=>{
-        if(a.numero===b.numero) return a.color==='negro'?-1:1;
+        if(a.numero === b.numero) return a.color==='negro'?-1:1;
         return a.numero-b.numero;
       });
       return { id:j.id, name:j.name, codigo:mano };
     });
 
-    let codigoCentral = (jugadoresSala.length === 3)
-      ? fichas.sort((a,b)=>{
-          if(a.numero===b.numero) return a.color==='negro'?-1:1;
-          return a.numero-b.numero;
-        })
-      : null;
+    let codigoCentral = null;
+    if (jugadoresSala.length === 3) {
+      codigoCentral = [...fichas].sort((a, b) => {
+        if(a.numero === b.numero) return a.color==='negro'?-1:1;
+        return a.numero - b.numero;
+      });
+    }
 
     io.to(roomId).emit('partidaEmpezada', { jugadoresEstado, codigoCentral });
   });

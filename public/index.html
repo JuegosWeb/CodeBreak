@@ -12,6 +12,7 @@
     .blanco { background: #fff; color: #222; border:1px solid #888;}
     .verde { background: #3a3; color: #fff; }
     .jugador {margin-bottom:18px;}
+    .oculta { background:#bbb; color:#888; font-size:20px;}
   </style>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
@@ -67,14 +68,16 @@ function mostrarTablero(jugadoresEstado, codigoCentral) {
   jugadoresEstado.forEach(j => {
     html += `<div class="jugador"><b>${j.name}:</b> `;
     j.codigo.forEach(f => {
-      let c = f.color;
-      let visible = (j.id === myId) ? '' : 'style="filter:blur(6px);"';
-      html += `<span class="ficha ${c}" ${visible}>${f.numero}</span>`;
+      if (j.id === myId) {
+        html += `<span class="ficha ${f.color}">${f.numero}</span>`;
+      } else {
+        html += `<span class="ficha oculta">?</span>`;
+      }
     });
     html += '</div>';
   });
 
-  // Si hay 2 jugadores, intento de código rival
+  // Para 2 jugadores: adivina el código rival
   if (jugadoresEstado.length === 2) {
     let rival = jugadoresEstado.find(j => j.id !== myId);
     html += `
@@ -87,12 +90,15 @@ function mostrarTablero(jugadoresEstado, codigoCentral) {
     `;
   }
 
-  // Si hay 3 jugadores, intento de código central
+  // Para 3 jugadores: adivina el código central
   if (jugadoresEstado.length === 3 && codigoCentral && codigoCentral.length > 0) {
     html += `
-      <div style="display:flex;align-items:center;gap:12px;margin-top:20px;">
+      <div style="margin:18px 0;">
+        <label><u>Las fichas restantes forman el código central:</u></label>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:10px;">
         <label for="codigoCentral"><b>Tu intento del código central:</b></label>
-        <input id="codigoCentral" type="text" maxlength="5" style="width:120px;padding:6px;">
+        <input id="codigoCentral" type="text" maxlength="${codigoCentral.length}" style="width:120px;padding:6px;">
         <button onclick="enviarIntentoCentral()">Enviar</button>
         <span id="resultadoCentral"></span>
       </div>
