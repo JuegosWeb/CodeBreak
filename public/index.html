@@ -4,34 +4,146 @@
   <meta charset="UTF-8" />
   <title>Descifra el Código</title>
   <style>
-    body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #eef; font-family: Arial, sans-serif; margin: 0;}
-    #gameContainer { background: white; padding: 25px 30px; border-radius: 12px; box-shadow: 0 2px 12px #0003; width: 440px;}
-    h2 { margin: 0 0 15px 0; text-align: center;}
-    .ficha { display: inline-block; width: 32px; height: 32px; margin: 2px; border-radius: 8px; text-align: center; line-height: 32px; font-weight: bold; font-size: 18px;}
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body {
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; height: 100vh;
+      background: #181820;
+      font-family: Arial, sans-serif;
+      color: #eee;
+      font-size: 1.23em;
+    }
+    #containerFlex {
+      width: 100vw; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #gameContainer {
+      background: #23232b;
+      padding: 35px 24px 28px 24px;
+      border-radius: 24px;
+      box-shadow: 0 4px 28px #000a;
+      width: 560px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+    h2 {
+      margin: 0 0 14px 0;
+      text-align: center;
+      color: #f3f3f3;
+      font-size: 2.7em;
+      font-weight: bold;
+      letter-spacing: 3px;
+    }
+    #status {
+      margin: 13px 0 5px 0;
+      text-align: center;
+      font-size: 1.2em;
+    }
+    input, button {
+      background: #23232b;
+      color: #fafafa;
+      border: 2px solid #444;
+      border-radius: 15px;
+      padding: 12px 15px;
+      margin: 5px 0 5px 0;
+      font-size: 1.13em;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    input:focus { outline: 2px solid #25b35f;}
+    button {
+      cursor:pointer; transition:background 0.16s, transform 0.12s;
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+    }
+    button:hover { background: #222; }
+    button:active {
+      animation: btnpulse 0.21s cubic-bezier(.51,1.65,.56,1) both;
+    }
+    @keyframes btnpulse {
+      0%   { transform: scale(1);}
+      55%  { transform: scale(0.94);}
+      100% { transform: scale(1);}
+    }
+    .btn-shake {
+      animation: shake 0.23s both;
+    }
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      22% { transform: translateX(-15px); }
+      45% { transform: translateX(13px); }
+      66% { transform: translateX(-8px); }
+      79% { transform: translateX(7px); }
+      100% { transform: translateX(0); }
+    }
+    .ficha { display: inline-block; width: 46px; height: 46px; margin: 2px; border-radius: 13px; text-align: center; line-height: 46px; font-weight: bold; font-size: 1.2em;}
     .negro { background: #222; color: #fff;}
-    .blanco { background: #fff; color: #222; border: 1px solid #888;}
-    .verde { background: #3a3; color: #fff;}
-    .oculta { background: #bbb; color: #888; font-size: 20px;}
-    .jugador { margin-bottom: 16px;}
-    .prediccion { margin: 8px 0 16px 0; }
+    .blanco { background: #222; color: #fff; border: 3px solid #666;}
+    .oculta { background: #555; color: #888; font-size: 1.1em;}
+    .jugador { margin-bottom: 13px;}
+    .prediccion { margin: 7px 0 11px 0; display: flex; align-items: center; justify-content: center; gap: 8px;}
+    a, u { color: #25b35f; }
+    .footer-nahuel {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 19px;
+      font-size: 1em;
+      color: #99a;
+      opacity: 0;
+      transition: opacity 0.7s;
+      pointer-events: none;
+      position: absolute;
+      left: 0; right: 0; bottom: 7px;
+    }
+    #gameContainer:hover .footer-nahuel { opacity: 0.7; pointer-events: auto; }
+    .footer-nahuel.oculto { display: none; }
+    #tablero {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
   </style>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
+<div id="containerFlex">
 <div id="gameContainer">
   <h2>Descifra el Código</h2>
-  <input id="playerName" placeholder="Tu nombre"><br><br>
-  <input id="roomId" placeholder="ID de sala (ej. sala1)"><br><br>
-  <button id="btnEntrar" onclick="joinRoom()">Entrar a la sala</button>
+  <input id="playerName" placeholder="Tu nombre">
+  <input id="roomId" placeholder="ID de sala (ej. sala1)">
+  <button id="btnEntrar" onclick="validateAndJoin()">Entrar a la sala</button>
   <button id="btnEmpezar" onclick="empezarPartida()" style="display:none;">Empezar partida</button>
   <div id="status"></div>
   <div id="tablero"></div>
+  <div class="footer-nahuel" id="nahuelFooter">
+    Desarrollado por Nahuel
+  </div>
+</div>
 </div>
 
 <script>
 let roomId, playerName, myId, jugadores = [], jugadoresEstadoGlobal = [], codigoCentralGlobal = null;
+let partidaIniciada = false;
 
 const socket = io();
+
+function validateAndJoin() {
+  const name = document.getElementById('playerName').value.trim();
+  const sala = document.getElementById('roomId').value.trim();
+  const btn = document.getElementById('btnEntrar');
+  if (name && sala) {
+    joinRoom();
+    return;
+  }
+  btn.classList.remove('btn-shake');
+  void btn.offsetWidth;
+  btn.classList.add('btn-shake');
+}
 
 function joinRoom(){
   playerName = document.getElementById('playerName').value;
@@ -41,6 +153,7 @@ function joinRoom(){
   document.getElementById('roomId').style.display = 'none';
   document.getElementById('btnEntrar').style.display = 'none';
   document.getElementById('status').innerText = `Esperando jugadores en ${roomId}...`;
+  document.getElementById('nahuelFooter').classList.remove('oculto');
 }
 
 socket.on('connect', () => { myId = socket.id; });
@@ -51,20 +164,26 @@ socket.on('playerList', pjs => {
   document.getElementById("btnEmpezar").style.display = jugadores.length >= 2 ? "" : "none";
 });
 
-function empezarPartida() { socket.emit('empezarPartida', { roomId }); }
+function empezarPartida() { 
+  socket.emit('empezarPartida', { roomId });
+  partidaIniciada = true;
+  document.getElementById('nahuelFooter').classList.add('oculto');
+}
 
 socket.on('partidaEmpezada', ({ jugadoresEstado, codigoCentral }) => {
   document.getElementById("btnEmpezar").style.display = "none";
   document.getElementById('status').innerText = '¡La partida ha comenzado!';
   jugadoresEstadoGlobal = jugadoresEstado;
   codigoCentralGlobal = codigoCentral;
+  partidaIniciada = true;
+  document.getElementById('nahuelFooter').classList.add('oculto');
   mostrarTablero(jugadoresEstadoGlobal, codigoCentralGlobal);
 });
 
 function mostrarTablero(jugadoresEstado, codigoCentral) {
-  let html = `<h3>Tablero</h3>`;
+  let html = ``;
   jugadoresEstado.forEach(j => {
-    html += `<div class="jugador"><b>${j.name}:</b> `;
+    html += `<div class="jugador" style="text-align:center;"><b>${j.name}:</b> `;
     j.codigo.forEach(f => {
       if (j.id === myId) {
         html += `<span class="ficha ${f.color}">${f.numero}</span>`;
@@ -74,39 +193,34 @@ function mostrarTablero(jugadoresEstado, codigoCentral) {
     });
     html += '</div>';
   });
-
-  // Genera el área de predicción para cada jugador menos yo
-  if (jugadoresEstado.length > 2) {
-    html += `<div><b>Intenta adivinar el código de los otros jugadores:</b></div>`;
+  if (jugadoresEstado.length > 1) {
+    html += `<div style="margin-top:9px;font-size:1em;"><b>Intenta adivinar el código de los otros jugadores:</b></div>`;
     jugadoresEstado.forEach(j => {
       if (j.id !== myId) {
         html += `
           <div class="prediccion">
             <label for="intento_${j.id}">Código de ${j.name}:</label>
-            <input id="intento_${j.id}" type="text" maxlength="5" style="width:102px;padding:6px;">
+            <input id="intento_${j.id}" type="text" maxlength="5" style="width:128px;">
             <button onclick="adivinarCodigoJugador('${j.id}')">Probar</button>
-            <span id="resultado_${j.id}"></span>
+            <span id="resultado_${j.id}" style="font-size:1em;margin-left:7px"></span>
           </div>
         `;
       }
     });
   }
-
-  // Clásico: adivinar el código central si hay 3 jugadores
   if (jugadoresEstado.length === 3 && codigoCentral && codigoCentral.length > 0) {
     html += `
-      <div style="margin:18px 0 10px 0;">
-      <u>Las fichas restantes forman el código central.</u>
-    </div>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <label for="codigoCentral"><b>Tu intento del código central (5 dígitos):</b></label>
-      <input id="codigoCentral" type="text" maxlength="5" style="width:140px;padding:6px;">
-      <button onclick="enviarIntentoCentral()">Enviar</button>
-      <span id="resultadoCentral"></span>
-    </div>
+      <div style="margin:11px 0 8px 0;">
+        <u>Las fichas restantes forman el código central.</u>
+      </div>
+      <div style="display:flex;align-items:center;gap:15px;">
+        <label for="codigoCentral"><b>Tu intento del código central:</b></label>
+        <input id="codigoCentral" type="text" maxlength="5" style="width:142px;padding:12px;">
+        <button onclick="enviarIntentoCentral()">Enviar</button>
+        <span id="resultadoCentral"></span>
+      </div>
     `;
   }
-
   document.getElementById('tablero').innerHTML = html;
 }
 
@@ -119,28 +233,11 @@ function adivinarCodigoJugador(jid){
   document.getElementById('resultado_' + jid).textContent = res;
 }
 
-function enviarIntentoCodigo() {
-  let rivalData = jugadoresEstadoGlobal.find(j => j.id !== myId);
-  let codigoReal = rivalData.codigo.map(f => f.numero).join('');
-  let intento = document.getElementById('codigoAdivinar').value;
-  let res = (intento === codigoReal) ? "¡Adivinaste el código!" : "No es correcto.";
-  document.getElementById('resultadoIntento').textContent = res;
-}
-
 function enviarIntentoCentral() {
   let codigoReal = codigoCentralGlobal.map(f => f.numero).join('');
   let intento = document.getElementById('codigoCentral').value;
   let res = (intento === codigoReal) ? "¡Adivinaste el código central!" : "No es correcto.";
   document.getElementById('resultadoCentral').textContent = res;
-}
-
-function revelarCodigoCentral() {
-  if (!codigoCentralGlobal || codigoCentralGlobal.length === 0) {
-    document.getElementById('revelacionCentral').textContent = 'No hay código central.';
-    return;
-  }
-  let cod = codigoCentralGlobal.map(f => f.numero).join('');
-  document.getElementById('revelacionCentral').textContent = `Código central: ${cod}`;
 }
 </script>
 </body>
