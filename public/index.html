@@ -26,7 +26,7 @@
   <div id="tablero"></div>
 </div>
 <script>
-let roomId, playerName, myId, jugadores = [], jugadoresEstadoGlobal = [];
+let roomId, playerName, myId, jugadores = [], jugadoresEstadoGlobal = [], codigoCentralGlobal = null;
 
 const socket = io();
 
@@ -54,14 +54,15 @@ function empezarPartida() {
   socket.emit('empezarPartida', { roomId });
 }
 
-socket.on('partidaEmpezada', ({ jugadoresEstado }) => {
+socket.on('partidaEmpezada', ({ jugadoresEstado, codigoCentral }) => {
   document.getElementById("btnEmpezar").style.display = "none";
   document.getElementById('status').innerText = '¡La partida ha comenzado!';
   jugadoresEstadoGlobal = jugadoresEstado;
-  mostrarTablero(jugadoresEstadoGlobal);
+  codigoCentralGlobal = codigoCentral;
+  mostrarTablero(jugadoresEstadoGlobal, codigoCentralGlobal);
 });
 
-function mostrarTablero(jugadoresEstado) {
+function mostrarTablero(jugadoresEstado, codigoCentral) {
   let html = `<h3>Tablero</h3>`;
   jugadoresEstado.forEach(j => {
     html += `<div class="jugador"><b>${j.name}:</b> `;
@@ -73,9 +74,8 @@ function mostrarTablero(jugadoresEstado) {
     html += '</div>';
   });
 
-  // Entrada para adivinar el código de otro jugador (para 2 jugadores)
+  // Si hay 2 jugadores, intento de código rival
   if (jugadoresEstado.length === 2) {
-    // Busca nombre contrario
     let rival = jugadoresEstado.find(j => j.id !== myId);
     html += `
       <div style="display:flex;align-items:center;gap:12px;margin-top:20px;">
@@ -83,6 +83,18 @@ function mostrarTablero(jugadoresEstado) {
         <input id="codigoAdivinar" type="text" maxlength="9" style="width:140px;padding:6px;">
         <button onclick="enviarIntentoCodigo()">Enviar</button>
         <span id="resultadoIntento"></span>
+      </div>
+    `;
+  }
+
+  // Si hay 3 jugadores, intento de código central
+  if (jugadoresEstado.length === 3 && codigoCentral && codigoCentral.length > 0) {
+    html += `
+      <div style="display:flex;align-items:center;gap:12px;margin-top:20px;">
+        <label for="codigoCentral"><b>Tu intento del código central:</b></label>
+        <input id="codigoCentral" type="text" maxlength="5" style="width:120px;padding:6px;">
+        <button onclick="enviarIntentoCentral()">Enviar</button>
+        <span id="resultadoCentral"></span>
       </div>
     `;
   }
@@ -96,6 +108,13 @@ function enviarIntentoCodigo() {
   let intento = document.getElementById('codigoAdivinar').value;
   let res = (intento === codigoReal) ? "¡Adivinaste el código!" : "No es correcto.";
   document.getElementById('resultadoIntento').textContent = res;
+}
+
+function enviarIntentoCentral() {
+  let codigoReal = codigoCentralGlobal.map(f => f.numero).join('');
+  let intento = document.getElementById('codigoCentral').value;
+  let res = (intento === codigoReal) ? "¡Adivinaste el código central!" : "No es correcto.";
+  document.getElementById('resultadoCentral').textContent = res;
 }
 </script>
 </body>

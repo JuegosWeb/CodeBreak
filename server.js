@@ -21,7 +21,6 @@ io.on('connection', (socket) => {
   });
 
   socket.on('empezarPartida', ({ roomId }) => {
-    // Reparte las fichas para cada jugador
     let fichas = [];
     for(let n=0; n<=9; n++) {
       if(n===5) {
@@ -43,7 +42,14 @@ io.on('connection', (socket) => {
       return { id:j.id, name:j.name, codigo:mano };
     });
 
-    io.to(roomId).emit('partidaEmpezada', { jugadoresEstado });
+    let codigoCentral = (jugadoresSala.length === 3)
+      ? fichas.sort((a,b)=>{
+          if(a.numero===b.numero) return a.color==='negro'?-1:1;
+          return a.numero-b.numero;
+        })
+      : null;
+
+    io.to(roomId).emit('partidaEmpezada', { jugadoresEstado, codigoCentral });
   });
 
   socket.on('playAction', ({ roomId, action }) => {
