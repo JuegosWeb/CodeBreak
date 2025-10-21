@@ -21,42 +21,45 @@ io.on('connection', (socket) => {
   });
 
   socket.on('empezarPartida', ({ roomId }) => {
+    // Crear las 20 fichas totales (0–9, negras y blancas, 5 verde especial)
     let fichas = [];
-    for(let n=0; n<=9; n++) {
-      if(n===5) {
-        fichas.push({numero:5, color:'verde'});
+    for (let n = 0; n <= 9; n++) {
+      if (n === 5) {
+        fichas.push({ numero: 5, color: 'verde' });
       } else {
-        fichas.push({numero:n, color:'negro'});
-        fichas.push({numero:n, color:'blanco'});
+        fichas.push({ numero: n, color: 'negro' });
+        fichas.push({ numero: n, color: 'blanco' });
       }
     }
-    fichas = fichas.sort(()=>Math.random()-0.5);
 
+    // Mezclar fichas
+    fichas.sort(() => Math.random() - 0.5);
+
+    // Obtener lista de jugadores
     let jugadoresSala = rooms[roomId];
-    // Reparte 5 fichas a cada jugador
+    const totalJugadores = jugadoresSala.length;
+
+    // Repartir 5 fichas por jugador
     let jugadoresEstado = jugadoresSala.map(j => {
-      let mano = fichas.splice(0,5);
-      mano.sort((a,b)=>{
-        if(a.numero === b.numero) return a.color==='negro'?-1:1;
-        return a.numero-b.numero;
+      let mano = fichas.splice(0, 5);
+      mano.sort((a, b) => {
+        if (a.numero === b.numero) return a.color === 'negro' ? -1 : 1;
+        return a.numero - b.numero;
       });
-      return { id:j.id, name:j.name, codigo:mano };
+      return { id: j.id, name: j.name, codigo: mano };
     });
 
-    // El resto (20 fichas - 3*5 = 5 fichas) forman el código central
+    // Las fichas restantes forman el código central
     let codigoCentral = null;
-    if (jugadoresSala.length === 3) {
+    if (totalJugadores === 3) {
       codigoCentral = [...fichas].sort((a, b) => {
-        if(a.numero === b.numero) return a.color==='negro'?-1:1;
+        if (a.numero === b.numero) return a.color === 'negro' ? -1 : 1;
         return a.numero - b.numero;
       });
     }
 
+    // Enviar estado completo a todos los jugadores
     io.to(roomId).emit('partidaEmpezada', { jugadoresEstado, codigoCentral });
-  });
-
-  socket.on('playAction', ({ roomId, action }) => {
-    io.to(roomId).emit('actionUpdate', action);
   });
 
   socket.on('disconnect', () => {
@@ -68,4 +71,6 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(3000, () => console.log('Servidor iniciado en http://localhost:3000'));
+server.listen(3000, () =>
+  console.log('Servidor iniciado en http://localhost:3000')
+);
