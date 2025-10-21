@@ -12,22 +12,48 @@
 <body>
   <div id="gameContainer">
     <h2>Descifrar el Código</h2>
-    <input id="playerName" placeholder="Tu nombre"> <br><br>
-    <input id="roomId" placeholder="ID de sala (ej. sala1)"> <br><br>
-    <button onclick="joinRoom()">Entrar a la sala</button>
-	<button id="btnEmpezar" onclick="empezarPartida()" style="display:none;">Empezar partida</button>
+    <input id="playerName" placeholder="Tu nombre"><br><br>
+    <input id="roomId" placeholder="ID de sala (ej. sala1)"><br><br>
+    <button id="btnEntrar" onclick="joinRoom()">Entrar a la sala</button>
+    <button id="btnEmpezar" onclick="empezarPartida()" style="display:none;">Empezar partida</button>
     <div id="status"></div>
   </div>
   <script>
+    let roomId;
     const socket = io();
+
     function joinRoom(){
       const name = document.getElementById('playerName').value;
-      const room = document.getElementById('roomId').value;
-      socket.emit('joinRoom', {roomId:room, playerName:name});
-      document.getElementById('status').innerText = `Esperando jugadores en ${room}...`;
+      roomId = document.getElementById('roomId').value;
+      socket.emit('joinRoom', { roomId, playerName: name });
+
+      // Oculta entrada al unirse
+      document.getElementById('playerName').style.display = 'none';
+      document.getElementById('roomId').style.display = 'none';
+      document.getElementById('btnEntrar').style.display = 'none';
+      document.getElementById('status').innerText = `Esperando jugadores en ${roomId}...`;
     }
+
+    // Recibe lista de jugadores y muestra botón "Empezar partida" según el mínimo
     socket.on('playerList', players => {
       document.getElementById('status').innerHTML = 'Jugadores conectados:<br>' + players.map(p=>p.name).join('<br>');
+      if (players.length >= 2) {
+        document.getElementById("btnEmpezar").style.display = "";
+      } else {
+        document.getElementById("btnEmpezar").style.display = "none";
+      }
+    });
+
+    function empezarPartida() {
+      socket.emit('empezarPartida', { roomId });
+    }
+
+    socket.on('partidaEmpezada', ({ iniciado }) => {
+      if (iniciado) {
+        document.getElementById("btnEmpezar").style.display = "none";
+        // Aquí inicia el juego, muestra tablero, etc.
+        document.getElementById('status').innerText = '¡La partida ha comenzado!';
+      }
     });
   </script>
 </body>
