@@ -33,6 +33,7 @@ io.on('connection', (socket) => {
     fichas = fichas.sort(()=>Math.random()-0.5);
 
     let jugadoresSala = rooms[roomId];
+    // Reparte 5 fichas a cada jugador
     let jugadoresEstado = jugadoresSala.map(j => {
       let mano = fichas.splice(0,5);
       mano.sort((a,b)=>{
@@ -42,6 +43,7 @@ io.on('connection', (socket) => {
       return { id:j.id, name:j.name, codigo:mano };
     });
 
+    // El resto (20 fichas - 3*5 = 5 fichas) forman el código central
     let codigoCentral = null;
     if (jugadoresSala.length === 3) {
       codigoCentral = [...fichas].sort((a, b) => {
