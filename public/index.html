@@ -113,7 +113,7 @@ function mostrarTablero(jugadoresEstado, codigoCentral) {
     `;
   }
 
-  // Adivinanza del código central para 3 jugadores (siempre 5 fichas)
+  // Para 3 jugadores: adivina el código central y botón revelar
   if (jugadoresEstado.length === 3 && codigoCentral && codigoCentral.length > 0) {
     html += `
       <div style="margin:18px 0 10px 0;">
@@ -125,10 +125,23 @@ function mostrarTablero(jugadoresEstado, codigoCentral) {
         <button onclick="enviarIntentoCentral()">Enviar</button>
         <span id="resultadoCentral"></span>
       </div>
+      <div style="margin:12px 0;">
+        <button onclick="revelarCodigoCentral()">Revelar código central</button>
+        <span id="revelacionCentral"></span>
+      </div>
     `;
   }
 
   document.getElementById('tablero').innerHTML = html;
+}
+
+function revelarCodigoCentral() {
+  if (!codigoCentralGlobal || codigoCentralGlobal.length === 0) {
+    document.getElementById('revelacionCentral').textContent = 'No hay código central.';
+    return;
+  }
+  let cod = codigoCentralGlobal.map(f => f.numero).join('');
+  document.getElementById('revelacionCentral').textContent = `Código central: ${cod}`;
 }
 
 function enviarIntentoCodigo() {
