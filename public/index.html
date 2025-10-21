@@ -62,12 +62,57 @@ const socket = io();
 
 function joinRoom(){
   playerName = document.getElementById('playerName').value;
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Descifra el Código</title>
+  <style>
+    body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #eef; font-family: Arial, sans-serif; margin: 0; }
+    #gameContainer { background: white; padding: 25px 30px; border-radius: 12px; box-shadow: 0 2px 12px #0003; width: 440px; }
+    h2 { margin: 0 0 15px 0; text-align: center; }
+    .ficha { display: inline-block; width: 32px; height: 32px; margin: 2px; border-radius: 8px; text-align: center; line-height: 32px; font-weight: bold; font-size: 18px; }
+    .negro { background: #222; color: #fff; }
+    .blanco { background: #fff; color: #222; border: 1px solid #888; }
+    .verde { background: #3a3; color: #fff; }
+    .oculta { background: #bbb; color: #888; font-size: 20px; cursor: pointer; }
+    .jugador { margin-bottom: 16px; }
+    button { cursor:pointer; }
+  </style>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+<div id="gameContainer">
+  <h2>Descifra el Código</h2>
+  <input id="playerName" placeholder="Tu nombre"><br><br>
+  <input id="roomId" placeholder="ID de sala (ej. sala1)"><br><br>
+  <button id="btnEntrar" onclick="joinRoom()">Entrar a la sala</button>
+  <button id="btnBot" onclick="addBot()">Añadir BOT</button>
+  <button id="btnEmpezar" onclick="empezarPartida()" style="display:none;">Empezar partida</button>
+  <div id="status"></div>
+  <div id="tablero"></div>
+</div>
+
+<script>
+let roomId, playerName, myId, jugadores = [], jugadoresEstadoGlobal = [], codigoCentralGlobal = null;
+
+const socket = io();
+
+function joinRoom(){
+  playerName = document.getElementById('playerName').value;
   roomId = document.getElementById('roomId').value;
   socket.emit('joinRoom', { roomId, playerName });
   document.getElementById('playerName').style.display = 'none';
   document.getElementById('roomId').style.display = 'none';
   document.getElementById('btnEntrar').style.display = 'none';
+  document.getElementById('btnBot').style.display = '';
   document.getElementById('status').innerText = `Esperando jugadores en ${roomId}...`;
+}
+
+// Añadir un bot (nombre generado y señal de bot=true)
+function addBot() {
+  const nombreBot = "BOT-" + Math.floor(Math.random()*1000);
+  socket.emit("joinRoom", { roomId, playerName: nombreBot, bot: true });
 }
 
 socket.on('connect', () => { myId = socket.id; });
@@ -82,20 +127,24 @@ function empezarPartida() { socket.emit('empezarPartida', { roomId }); }
 
 socket.on('partidaEmpezada', ({ jugadoresEstado, codigoCentral }) => {
   document.getElementById("btnEmpezar").style.display = "none";
+  document.getElementById('btnBot').style.display = "none";
   document.getElementById('status').innerText = '¡La partida ha comenzado!';
   jugadoresEstadoGlobal = jugadoresEstado;
   codigoCentralGlobal = codigoCentral;
   mostrarTablero(jugadoresEstadoGlobal, codigoCentralGlobal);
 });
 
-// Esta función SIEMPRE se llama luego de cualquier evento y pone los botones
+// Esta función pone los botones y funcionalidades del tablero
 function mostrarTablero(jugadoresEstado, codigoCentral) {
   let html = `<h3>Tablero</h3>`;
   jugadoresEstado.forEach(j => {
     html += `<div class="jugador"><b>${j.name}:</b> `;
-    j.codigo.forEach(f => {
+    // Si es el bot, permite click en las fichas ocultas
+    j.codigo.forEach((f, idx) => {
       if (j.id === myId) {
         html += `<span class="ficha ${f.color}">${f.numero}</span>`;
+      } else if (j.name.startsWith("BOT-")) {
+        html += `<span class="ficha oculta" onclick="revelarJugador('${j.id}')">?</span>`;
       } else {
         html += `<span class="ficha oculta">?</span>`;
       }
@@ -103,20 +152,8 @@ function mostrarTablero(jugadoresEstado, codigoCentral) {
     html += '</div>';
   });
 
-  if (jugadoresEstado.length === 2) {
-    let rival = jugadoresEstado.find(j => j.id !== myId);
-    html += `
-      <div style="display:flex;align-items:center;gap:12px;margin-top:20px;">
-        <label for="codigoAdivinar"><b>Tu intento del código de ${rival.name}:</b></label>
-        <input id="codigoAdivinar" type="text" maxlength="9" style="width:140px;padding:6px;">
-        <button onclick="enviarIntentoCodigo()">Enviar</button>
-        <span id="resultadoIntento"></span>
-      </div>
-    `;
-  }
-
-  // Para 3 jugadores: adivina el código central y botón revelar
-  if (jugadoresEstado.length === 3 && codigoCentral && codigoCentral.length > 0) {
+  // Siempre para 3 jugadores, muestra el input para adivinar el código central y botón de revelar
+  if (jugadoresEstado.length === 3) {
     html += `
       <div style="margin:18px 0 10px 0;">
         <u>Las fichas restantes forman el código central.</u>
@@ -137,6 +174,14 @@ function mostrarTablero(jugadoresEstado, codigoCentral) {
   document.getElementById('tablero').innerHTML = html;
 }
 
+// Revelar el código de un BOT haciendo click en sus fichas
+function revelarJugador(jugadorId) {
+  let botData = jugadoresEstadoGlobal.find(j => j.id === jugadorId);
+  if (!botData) return;
+  let codigoBot = botData.codigo.map(f => f.numero).join('');
+  alert(`Código del bot: ${codigoBot}`);
+}
+
 function enviarIntentoCodigo() {
   let rivalData = jugadoresEstadoGlobal.find(j => j.id !== myId);
   let codigoReal = rivalData.codigo.map(f => f.numero).join('');
@@ -146,7 +191,7 @@ function enviarIntentoCodigo() {
 }
 
 function enviarIntentoCentral() {
-  let codigoReal = codigoCentralGlobal.map(f => f.numero).join('');
+  let codigoReal = codigoCentralGlobal?.map(f => f.numero).join('');
   let intento = document.getElementById('codigoCentral') ? document.getElementById('codigoCentral').value : "";
   let res = (intento === codigoReal) ? "¡Adivinaste el código central!" : "No es correcto.";
   document.getElementById('resultadoCentral').textContent = res;

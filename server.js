@@ -75,6 +75,13 @@ io.on('connection', (socket) => {
   });
 });
 
+socket.on('joinRoom', ({ roomId, playerName, bot }) => {
+  if (!rooms[roomId]) rooms[roomId] = [];
+  rooms[roomId].push({ id: socket.id, name: playerName, bot: bot || false });
+  socket.join(roomId);
+  io.to(roomId).emit('playerList', rooms[roomId]);
+});
+
 server.listen(3000, () =>
   console.log('Servidor iniciado en http://localhost:3000')
 );
