@@ -21,7 +21,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('empezarPartida', ({ roomId }) => {
-    // Crear las 20 fichas totales (0–9, negras y blancas, 5 verde especial)
+    // Crear las 20 fichas totales (0–9, con sus colores)
     let fichas = [];
     for (let n = 0; n <= 9; n++) {
       if (n === 5) {
@@ -32,16 +32,15 @@ io.on('connection', (socket) => {
       }
     }
 
-    // Mezclar fichas
+    // Barajar fichas
     fichas.sort(() => Math.random() - 0.5);
 
-    // Obtener lista de jugadores
-    let jugadoresSala = rooms[roomId];
+    const jugadoresSala = rooms[roomId] || [];
     const totalJugadores = jugadoresSala.length;
 
     // Repartir 5 fichas por jugador
-    let jugadoresEstado = jugadoresSala.map(j => {
-      let mano = fichas.splice(0, 5);
+    const jugadoresEstado = jugadoresSala.map(j => {
+      const mano = fichas.splice(0, 5);
       mano.sort((a, b) => {
         if (a.numero === b.numero) return a.color === 'negro' ? -1 : 1;
         return a.numero - b.numero;
@@ -49,24 +48,29 @@ io.on('connection', (socket) => {
       return { id: j.id, name: j.name, codigo: mano };
     });
 
-    // Las fichas restantes forman el código central
+    // Calcular las fichas restantes como código central
     let codigoCentral = null;
-    if (totalJugadores === 3) {
-      codigoCentral = [...fichas].sort((a, b) => {
+    // Si hay 3 jugadores, deberían quedar exactamente 5 fichas sin repartir
+    if (totalJugadores === 3 && fichas.length === 5) {
+      codigoCentral = fichas.sort((a, b) => {
         if (a.numero === b.numero) return a.color === 'negro' ? -1 : 1;
         return a.numero - b.numero;
       });
     }
 
-    // Enviar estado completo a todos los jugadores
+    // Debug para confirmar en consola
+    console.log('Fichas restantes:', fichas);
+    console.log('Código central generado:', codigoCentral?.map(f => f.numero));
+
+    // Enviar el estado al cliente
     io.to(roomId).emit('partidaEmpezada', { jugadoresEstado, codigoCentral });
   });
 
   socket.on('disconnect', () => {
-    Object.keys(rooms).forEach(roomId => {
+    for (const roomId in rooms) {
       rooms[roomId] = rooms[roomId].filter(p => p.id !== socket.id);
       io.to(roomId).emit('playerList', rooms[roomId]);
-    });
+    }
     console.log('Jugador desconectado:', socket.id);
   });
 });
