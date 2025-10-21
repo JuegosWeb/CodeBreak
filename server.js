@@ -13,58 +13,50 @@ let rooms = {};
 io.on('connection', (socket) => {
   console.log('Jugador conectado:', socket.id);
 
-  socket.on('joinRoom', ({ roomId, playerName, bot }) => {
+  socket.on('joinRoom', ({ roomId, playerName }) => {
     if (!rooms[roomId]) rooms[roomId] = [];
-    rooms[roomId].push({ id: socket.id, name: playerName, bot: bot || false });
+    rooms[roomId].push({ id: socket.id, name: playerName });
     socket.join(roomId);
     io.to(roomId).emit('playerList', rooms[roomId]);
   });
 
   socket.on('empezarPartida', ({ roomId }) => {
+    // Crear las 20 fichas totales (0–9, negras y blancas, 5 verde especial)
     let fichas = [];
     for (let n = 0; n <= 9; n++) {
-      if (n === 5) {
-        fichas.push({ numero: 5, color: 'verde' });
-      } else {
-        fichas.push({ numero: n, color: 'negro' });
-        fichas.push({ numero: n, color: 'blanco' });
-      }
-    }
+		fichas.push({ numero: n, color: 'negro' });
+		fichas.push({ numero: n, color: 'blanco' });
+	}
+
+
+    // Mezclar fichas
     fichas.sort(() => Math.random() - 0.5);
 
-    let jugadoresSala = rooms[roomId] || [];
-
-    // Añade un bot automáticamente cuando hay exactamente 3 humanos
-    const jugadoresHumanos = jugadoresSala.filter(j => !j.bot);
-    if (jugadoresHumanos.length === 3 && jugadoresSala.length === 3) {
-      jugadoresSala.push({
-        id: 'bot-auto-' + Math.floor(Math.random() * 10000),
-        name: 'BOT-MAESTRO',
-        bot: true
-      });
-      rooms[roomId] = jugadoresSala;
-      io.to(roomId).emit('playerList', rooms[roomId]);
-    }
-
+    // Obtener lista de jugadores
+    let jugadoresSala = rooms[roomId];
     const totalJugadores = jugadoresSala.length;
 
-    const jugadoresEstado = jugadoresSala.map(j => {
-      const mano = fichas.splice(0, 5);
+    // Repartir 5 fichas por jugador
+    let jugadoresEstado = jugadoresSala.map(j => {
+      let mano = fichas.splice(0, 5);
       mano.sort((a, b) => {
         if (a.numero === b.numero) return a.color === 'negro' ? -1 : 1;
         return a.numero - b.numero;
       });
-      return { id: j.id, name: j.name, bot: j.bot, codigo: mano };
+      return { id: j.id, name: j.name, codigo: mano };
     });
 
-    // Cuando hay bot, no hay código central. El objetivo es adivinar el código del bot.
+    // Las fichas restantes forman el código central (siempre el array restante)
     let codigoCentral = null;
-    let objetivoBot = false;
-    if (jugadoresEstado.some(j => j.bot) && totalJugadores === 4) {
-      objetivoBot = true;
+    if (totalJugadores === 3) {
+      codigoCentral = [...fichas].sort((a, b) => {
+        if (a.numero === b.numero) return a.color === 'negro' ? -1 : 1;
+        return a.numero - b.numero;
+      });
+      console.log("Fichas restantes para código central:", codigoCentral.map(f => `${f.numero}${f.color[0]}`));
     }
 
-    io.to(roomId).emit('partidaEmpezada', { jugadoresEstado, codigoCentral, objetivoBot });
+    io.to(roomId).emit('partidaEmpezada', { jugadoresEstado, codigoCentral });
   });
 
   socket.on('disconnect', () => {
