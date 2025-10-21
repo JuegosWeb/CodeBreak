@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Descifrar el Código</title>
+  <title>CodeBreak</title>
   <style>
     body {display:flex;justify-content:center;align-items:center;min-height:100vh;background:#eef;font-family:Arial,sans-serif;}
     #gameContainer {background:white;padding:30px;border-radius:12px;box-shadow:0 2px 12px #0003;width:380px;}
@@ -15,6 +15,7 @@
     <input id="playerName" placeholder="Tu nombre"> <br><br>
     <input id="roomId" placeholder="ID de sala (ej. sala1)"> <br><br>
     <button onclick="joinRoom()">Entrar a la sala</button>
+	<button id="btnEmpezar" onclick="empezarPartida()" style="display:none;">Empezar partida</button>
     <div id="status"></div>
   </div>
   <script>
