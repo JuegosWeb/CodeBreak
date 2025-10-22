@@ -10,6 +10,28 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
+  /* === Texto invisible © 2025 Nahuel === */
+  .hidden-text {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.8);
+    opacity: 0;
+    transition: opacity 1.3s ease;
+    pointer-events: none;
+    z-index: 20;
+    font-family: "Segoe UI", sans-serif;
+  }
+  body:hover .hidden-text {
+    opacity: 1;
+    transition: opacity 0.8s ease-in;
+  }
+  body:not(:hover) .hidden-text {
+    opacity: 0;
+    transition: opacity 2.5s ease-out;
+  }
   body { overflow-x: hidden; }
   @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   .fade { animation: fade 0.4s ease; }
@@ -38,6 +60,8 @@
   }
 </style>
 </head>
+  <!-- Texto invisible -->
+<div class="hidden-text">© 2025 Nahuel</div>
 <body class="bg-gradient-to-b from-gray-900 to-black text-white flex items-center justify-center min-h-screen overflow-hidden">
 <div id="root"></div>
 
