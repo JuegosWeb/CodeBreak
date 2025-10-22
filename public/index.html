@@ -13,13 +13,36 @@
   body { overflow-x: hidden; }
   @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   .fade { animation: fade 0.4s ease; }
+  @keyframes pulse-border {
+    0% { border-color: rgba(6, 182, 212, 0.5); }
+    50% { border-color: rgba(6, 182, 212, 1); }
+    100% { border-color: rgba(6, 182, 212, 0.5); }
+  }
+  .pulse-border {
+    animation: pulse-border 1.5s infinite ease-in-out;
+  }
+  .toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+  }
+  .toast {
+    background-color: #333;
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    animation: fade 0.3s ease-out;
+  }
 </style>
 </head>
 <body class="bg-gradient-to-b from-gray-900 to-black text-white flex items-center justify-center min-h-screen overflow-hidden">
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef } = React;
 const socket = io();
 
 const Ficha = ({numero, color, oculta}) => {
@@ -28,22 +51,55 @@ const Ficha = ({numero, color, oculta}) => {
   return <div className={`${base} ${color==='blanco'?'bg-white text-black border-gray-400':'bg-black text-white border-gray-600'}`}>{numero}</div>;
 };
 
-const Mano = ({jugador, soyYo}) => (
-  <div className="p-3 bg-gray-800/60 rounded-xl my-3 fade w-full">
+const Mano = ({jugador, soyYo, esMiTurno}) => (
+  <div className={`p-3 bg-gray-800/60 rounded-xl my-3 fade w-full ${esMiTurno ? 'border-2 border-teal-500 pulse-border' : ''}`}>
     <h3 className="text-teal-300 font-semibold mb-1">{jugador.name} {soyYo && '(Tú)'}</h3>
     <div className="flex justify-center flex-wrap">{jugador.hand.map((t,i)=> <Ficha key={i} numero={t.numero} color={t.color} oculta={!soyYo}/>)}</div>
     {soyYo && <p className="mt-2 text-sm text-teal-400">Tu código: <span className="font-mono text-white tracking-widest">{jugador.code}</span></p>}
   </div>
 );
 
-const Modal = ({show, title, body, onClose, children}) => {
+const Toast = ({ message, type, onClose }) => {
+  const bgColor = type === 'error' ? 'bg-red-700' : 'bg-green-700';
+  return (
+    <div className={`toast ${bgColor}`} onClick={onClose}>
+      {message}
+    </div>
+  );
+};
+
+const ToastContainer = ({ toasts, removeToast }) => (
+  <div className="toast-container">
+    {toasts.map(toast => (
+      <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />
+    ))}
+  </div>
+);
+
+const Modal = ({show, title, body, onClose, modalType, onSubmitGuess}) => {
   if (!show) return null;
+  const guessInputRef = useRef(null);
+
+  const handleSubmit = () => {
+    if (modalType === 'guess' && guessInputRef.current) {
+      onSubmitGuess(guessInputRef.current.value);
+    }
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50 fade">
       <div className="bg-gray-800 p-6 rounded-xl w-[26rem] border border-gray-600">
         <h2 className="text-lg font-bold text-teal-400 mb-2">{title}</h2>
         <p className="whitespace-pre-line mb-4">{body}</p>
-        {children}
+        {modalType === 'guess' && (
+          <div>
+            <input ref={guessInputRef} type="text" maxLength="5"
+              className="w-full p-2 text-black text-center rounded mb-2 bg-gray-200"
+              placeholder="Ej. 12345"/>
+            <button onClick={handleSubmit} className="w-full py-2 bg-rose-600 hover:bg-rose-500 rounded font-bold">Enviar</button>
+          </div>
+        )}
         <button onClick={onClose} className="mt-3 w-full py-2 rounded bg-gray-700 hover:bg-gray-600 font-bold">Cerrar</button>
       </div>
     </div>
@@ -59,28 +115,70 @@ const App = () => {
   const [socketId, setSocketId] = useState(null);
   const [preguntasVisibles, setPreguntasVisibles] = useState([]);
   const [esperandoCierre, setEsperandoCierre] = useState(false);
-  const [modal, setModal] = useState({show:false, title:'', body:'', children:null});
+  const [modal, setModal] = useState({show:false, title:'', body:'', modalType:null});
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message, type = 'info', duration = 3000) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => removeToast(id), duration);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
 
   useEffect(() => {
     socket.on('connect', () => setSocketId(socket.id));
-    socket.on('updateRoom', setJugadores);
-    socket.on('gameStarted', gs => { setEstado(gs); setEnPartida(true); });
+    socket.on('updateRoom', players => {
+      setJugadores(players);
+      // Si la partida ya empezó y la sala se actualiza, es que alguien se fue o se unió
+      if (enPartida && players.length < 2) { // Asumimos que la partida no puede continuar con menos de 2
+        showToast("La partida terminó porque no hay suficientes jugadores.", "error");
+        setEnPartida(false);
+        setEstado(null);
+      }
+    });
+    socket.on('gameStarted', gs => { setEstado(gs); setEnPartida(true); setModal({show:false}); showToast("¡La partida ha comenzado!", "info"); });
     socket.on('questionResult', r => {
       const id = Date.now();
       setPreguntasVisibles(prev=>[...prev, {id, title:r.title, body:r.body, abierta:true, autor:r.autor}]);
-      setModal({show:true, title:r.title, body:r.body, children:null});
+      setModal({show:true, title:r.title, body:r.body, modalType:null}); // Usamos modal para mostrar el resultado, pero sin input.
       if (r.autor === socket.id) setEsperandoCierre(true);
       setEstado(p => ({...p, usedQuestions:r.usedQuestions}));
     });
     socket.on('turnChanged', i => setEstado(p => ({...p, currentPlayerTurn:i})));
     socket.on('gameOver', ({winner, players}) => {
-      setModal({show:true, title:`🎉 ${winner.name} ganó!`, body:players.map(p=>`${p.name}: ${p.code}`).join('\n'), children:null});
+      setModal({show:true, title:`🎉 ${winner.name} ganó!`, body:players.map(p=>`${p.name}: ${p.code}`).join('\n'), modalType:null});
       setEnPartida(false);
+      setEsperandoCierre(false);
+      setPreguntasVisibles([]);
     });
-  }, []);
+    socket.on('roomFull', () => showToast("La sala está llena, no puedes unirte.", "error"));
+    socket.on('playerLeft', ({ playerName, newTurn }) => {
+      showToast(`${playerName} ha abandonado la partida.`, "error");
+      if (newTurn !== undefined) {
+        setEstado(prev => ({ ...prev, currentPlayerTurn: newTurn }));
+      }
+    });
+
+    return () => {
+      socket.off('connect');
+      socket.off('updateRoom');
+      socket.off('gameStarted');
+      socket.off('questionResult');
+      socket.off('turnChanged');
+      socket.off('gameOver');
+      socket.off('roomFull');
+      socket.off('playerLeft');
+    };
+  }, [enPartida]); // Dependencia en enPartida para resetear handlers si se sale de la partida
 
   const unirse = () => {
-    if (!nombre || !sala) return alert("Introduce nombre y sala");
+    if (!nombre || !sala) {
+      showToast("Introduce tu nombre y el código de sala.", "error");
+      return;
+    }
     socket.emit('joinRoom', {playerName:nombre, roomId:sala});
   };
   const comenzar = () => socket.emit('startGame', {roomId:sala});
@@ -90,26 +188,22 @@ const App = () => {
     socket.emit('selectQuestion', {roomId:sala, questionIndex:i});
   };
 
+  const handleSubmitGuess = (guess) => {
+    if (guess && guess.length === 5 && /^\d+$/.test(guess)) {
+      socket.emit("guessCode",{roomId:sala,guess:guess});
+    } else {
+      showToast("El código debe ser de 5 dígitos numéricos.", "error");
+    }
+  };
+
   const abrirAdivinar = () => {
     if (!esMiTurno()) return;
     setModal({
       show:true,
       title:"Adivinar código",
-      body:"Introduce tu intento de código (5 dígitos):",
-      children:(
-        <div>
-          <input id="guessInput" type="text" maxLength="5"
-            className="w-full p-2 text-black text-center rounded mb-2"
-            placeholder="Ej. 12345"/>
-          <button onClick={()=>{
-            const v=document.getElementById('guessInput').value;
-            if(v&&v.length===5){
-              socket.emit("guessCode",{roomId:sala,guess:v});
-              setModal(m=>({...m,show:false}));
-            }
-          }} className="w-full py-2 bg-rose-600 hover:bg-rose-500 rounded font-bold">Enviar</button>
-        </div>
-      )
+      body:"Introduce tu intento de código (5 dígitos numéricos):",
+      modalType:"guess",
+      onSubmitGuess: handleSubmitGuess
     });
   };
 
@@ -117,11 +211,14 @@ const App = () => {
     setPreguntasVisibles(prev=>prev.map(p=>p.id===id?{...p,abierta:!p.abierta}:p));
 
   const cerrarYPasarTurno = (id, autor) => {
-    if (autor!==socketId) return;
+    if (autor!==socketId) return; // Solo el autor puede cerrar su pregunta
     setPreguntasVisibles(prev=>prev.filter(p=>p.id!==id));
     setEsperandoCierre(false);
     socket.emit('closeQuestion',{roomId:sala});
   };
+
+  const totalPlayersInLobby = jugadores.length;
+  const maxPlayers = 4; // Hardcoded, consider getting from server if variable
 
   return (
     <div className="flex flex-col items-center justify-center w-full max-w-6xl mx-auto p-4 text-center">
@@ -129,33 +226,41 @@ const App = () => {
 
       {!enPartida ? (
         <div className="bg-gray-800 p-8 rounded-xl max-w-md w-full">
-          <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded" value={nombre} onChange={e=>setNombre(e.target.value)}/>
-          <input placeholder="Código de sala" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded" value={sala} onChange={e=>setSala(e.target.value)}/>
+          <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white" value={nombre} onChange={e=>setNombre(e.target.value)}/>
+          <input placeholder="Código de sala" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded text-white" value={sala} onChange={e=>setSala(e.target.value)}/>
           <button onClick={unirse} className="w-full bg-teal-600 hover:bg-teal-500 py-2 rounded">Unirse</button>
-          {jugadores.length>=2&&jugadores.length<=4 && (
-            <button onClick={comenzar} className="w-full mt-2 bg-green-600 hover:bg-green-500 py-2 rounded">Empezar partida</button>
+          {totalPlayersInLobby > 0 && (
+            <div className="mt-3 text-gray-300">
+              <p className="font-semibold text-teal-300 mb-1">Jugadores en la sala ({totalPlayersInLobby}/{maxPlayers}):</p>
+              {jugadores.map(j=><p key={j.id} className="text-sm">{j.name}</p>)}
+            </div>
           )}
-          <div className="mt-3 text-gray-300">{jugadores.map(j=><p key={j.id}>{j.name}</p>)}</div>
+          {totalPlayersInLobby >= 2 && totalPlayersInLobby <= maxPlayers && (
+            <button onClick={comenzar} className="w-full mt-4 bg-green-600 hover:bg-green-500 py-2 rounded">Empezar partida</button>
+          )}
         </div>
       ) : (
         estado && (
         <div className="fade w-full max-w-5xl text-center">
-          <h2 className="text-lg mb-3">Turno de: <span className={esMiTurno()?"text-green-400":"text-yellow-400"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
-          {estado.players.map((p,i)=><Mano key={i} jugador={p} soyYo={p.id===socketId}/>)}
+          <h2 className="text-lg mb-3">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
+          {estado.players.map((p,i)=><Mano key={i} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()}/>)}
 
           <div className="relative h-56 flex justify-center items-center mt-5">
             {estado.questions.map((q,i)=>{
               if(estado.usedQuestions[i])return null;
-              const ang=i*3-20;
+              const ang=i*5-20; // Ajustado para mejor visualización con 10 preguntas
               return(
                 <div key={i} onClick={()=>lanzarPregunta(i)}
                   className={`absolute w-56 h-28 flex items-center justify-center text-black font-bold rounded-xl shadow-md border
-                    ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
+                    ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105 transition-transform duration-200 ease-in-out':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
                   style={{transform:`rotate(${ang}deg)`,zIndex:50-i}}>
-                  Pregunta
+                  Pregunta {i + 1}
                 </div>
               );
             })}
+            {estado.questions.every(q => estado.usedQuestions[estado.questions.indexOf(q)]) && (
+                <div className="absolute text-gray-400 text-lg font-bold">No quedan preguntas.</div>
+            )}
           </div>
 
           <button disabled={!esMiTurno()} onClick={abrirAdivinar}
@@ -172,13 +277,15 @@ const App = () => {
           {preguntasVisibles.map(p=>(
             <div key={p.id} className="bg-gray-700/70 rounded p-3 mb-3">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-semibold whitespace-normal break-words w-[240px]">{p.title}</span>
+                <span className="text-sm font-semibold whitespace-normal break-words w-[240px] text-teal-200">{p.title}</span>
                 <div className="flex-shrink-0 ml-2">
-                  <button className="text-xs bg-emerald-600 px-2 py-1 rounded mr-1" onClick={()=>alternarVisibilidad(p.id)}>
+                  <button className="text-xs bg-emerald-600 px-2 py-1 rounded mr-1 hover:bg-emerald-500" onClick={()=>alternarVisibilidad(p.id)}>
                     {p.abierta?"Minimizar":"Abrir"}
                   </button>
                   {p.autor===socketId && (
-                    <button className="text-xs bg-rose-600 px-2 py-1 rounded" onClick={()=>cerrarYPasarTurno(p.id,p.autor)}>
+                    <button className={`text-xs bg-rose-600 px-2 py-1 rounded hover:bg-rose-500 ${esperandoCierre ? 'opacity-100' : 'opacity-50 cursor-not-allowed'}`}
+                            onClick={()=>cerrarYPasarTurno(p.id,p.autor)}
+                            disabled={!esperandoCierre}>
                       Cerrar y pasar
                     </button>
                   )}
@@ -190,9 +297,9 @@ const App = () => {
         </div>
       )}
 
-      <Modal show={modal.show} title={modal.title} body={modal.body} onClose={()=>setModal(m=>({...m,show:false}))}>
-        {modal.children}
-      </Modal>
+      <Modal show={modal.show} title={modal.title} body={modal.body} onClose={()=>setModal(m=>({...m,show:false}))}
+             modalType={modal.modalType} onSubmitGuess={modal.onSubmitGuess}/>
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 };
