@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Descifra el Código - Multijugador</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -10,198 +10,148 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
-  @keyframes rise {0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-  .card:hover{animation:rise .4s ease;}
-  .fade{animation:fade .4s ease;}
-  @keyframes fade{from{opacity:0}to{opacity:1}}
+  body { overflow-x: hidden; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .fade { animation: fade 0.4s ease; }
 </style>
 </head>
-<body class="bg-gradient-to-b from-gray-900 to-black text-white flex flex-col items-center justify-center min-h-screen">
+<body class="bg-gradient-to-b from-gray-900 to-black text-white flex items-center justify-center min-h-screen overflow-hidden">
 <div id="root"></div>
+
 <script type="text/babel">
+const { useState, useEffect } = React;
+const socket = io();
 
-const {useState,useEffect}=React;
-const socket=io();
-
-const Ficha=({numero,color,oculta})=>{
-  const base=`w-12 h-14 flex items-center justify-center rounded-lg m-1 border text-xl font-bold`;
-  if(oculta)return<div className={`${base} bg-gray-700 border-gray-600 text-gray-400`}>?</div>;
-  return<div className={`${base} ${color==='blanco'?'bg-white text-black border-gray-400':'bg-black text-white border-gray-500'}`}>{numero}</div>;
+const Ficha = ({numero, color, oculta}) => {
+  const base = "w-12 h-14 flex items-center justify-center rounded-lg m-1 border text-xl font-bold";
+  if (oculta) return <div className={`${base} bg-gray-700 border-gray-600 text-gray-400`}>?</div>;
+  return <div className={`${base} ${color==='blanco'?'bg-white text-black border-gray-400':'bg-black text-white border-gray-600'}`}>{numero}</div>;
 };
 
-const Mano=({jugador,soyYo})=>(
-  <div className="p-3 bg-gray-800/60 rounded-xl my-2 fade">
-    <h3 className="text-teal-300 font-semibold mb-1">{jugador.name} {soyYo&&'(Tú)'}</h3>
-    <div className="flex justify-center flex-wrap">{jugador.hand.map((t,i)=>
-      <Ficha key={i} numero={t.numero} color={t.color} oculta={!soyYo}/>
-    )}</div>
-    {soyYo&&<p className="mt-2 text-sm text-teal-400">
-      Tu código: <span className="font-mono text-white tracking-widest">{jugador.code}</span>
-    </p>}
+const Mano = ({jugador, soyYo}) => (
+  <div className="p-3 bg-gray-800/60 rounded-xl my-3 fade w-full">
+    <h3 className="text-teal-300 font-semibold mb-1">{jugador.name} {soyYo && '(Tú)'}</h3>
+    <div className="flex justify-center flex-wrap">{jugador.hand.map((t,i)=> <Ficha key={i} numero={t.numero} color={t.color} oculta={!soyYo}/>)}</div>
+    {soyYo && <p className="mt-2 text-sm text-teal-400">Tu código: <span className="font-mono text-white tracking-widest">{jugador.code}</span></p>}
   </div>
 );
 
-const Modal=({show,title,body,onClose,onGuess,multiCodes,players})=>{
-  const[inputs,setInputs]=useState({});
-  if(!show)return null;
-
-  const handleChange=(id,value)=>setInputs({...inputs,[id]:value});
-
-  const enviar=()=>{
-    if(onGuess){
-      if(multiCodes){
-        Object.entries(inputs).forEach(([id,value])=>{
-          if(value?.length===5)onGuess(value,id);
-        });
-      }else{
-        if(inputs.single?.length===5)onGuess(inputs.single);
-      }
-    }
-    onClose();
-  };
-
-  return(
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 fade">
-      <div className="bg-gray-800 p-6 rounded-xl w-96 border border-gray-600 text-left">
+const Modal = ({show, title, body, onClose, children}) => {
+  if (!show) return null;
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50 fade">
+      <div className="bg-gray-800 p-6 rounded-xl w-[26rem] border border-gray-600">
         <h2 className="text-lg font-bold text-teal-400 mb-2">{title}</h2>
         <p className="whitespace-pre-line mb-4">{body}</p>
-        
-        {/* Para modo de 4 jugadores */}
-        {multiCodes && players && (
-          <div>
-            {players.map(p=>(
-              <div key={p.id} className="mb-2">
-                <label className="block text-sm mb-1">Código de {p.name}</label>
-                <input type="text" maxLength="5"
-                       onChange={e=>handleChange(p.id,e.target.value)}
-                       className="w-full p-2 text-center text-black rounded"/>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Para modos normales */}
-        {!multiCodes && (
-          <input className="w-full p-2 mb-3 text-center text-black rounded"
-                 placeholder="Introduce el código" maxLength="5"
-                 onChange={e=>handleChange("single",e.target.value)} />
-        )}
-
-        <button onClick={enviar}
-          className="bg-teal-600 hover:bg-teal-500 w-full py-2 rounded font-bold">
-          Enviar
-        </button>
+        {children}
+        <button onClick={onClose} className="mt-3 w-full py-2 rounded bg-gray-700 hover:bg-gray-600 font-bold">Cerrar</button>
       </div>
     </div>
   );
 };
 
-const App=()=>{
-  const[nombre,setNombre]=useState('');
-  const[sala,setSala]=useState('');
-  const[jugadores,setJugadores]=useState([]);
-  const[estado,setEstado]=useState(null);
-  const[enPartida,setEnPartida]=useState(false);
-  const[socketId,setSocketId]=useState(null);
-  const[modal,setModal]=useState({show:false,title:'',body:'',onGuess:null,multiCodes:false,players:[]});
+const App = () => {
+  const [nombre, setNombre] = useState('');
+  const [sala, setSala] = useState('');
+  const [jugadores, setJugadores] = useState([]);
+  const [estado, setEstado] = useState(null);
+  const [enPartida, setEnPartida] = useState(false);
+  const [socketId, setSocketId] = useState(null);
+  const [preguntasVisibles, setPreguntasVisibles] = useState([]);
+  const [esperandoCierre, setEsperandoCierre] = useState(false);
+  const [modal, setModal] = useState({show:false, title:'', body:'', children:null});
 
-  useEffect(()=>{
-    socket.on('connect',()=>setSocketId(socket.id));
-    socket.on('updateRoom',setJugadores);
-    socket.on('gameStarted',gs=>{setEstado(gs);setEnPartida(true);});
-    socket.on('questionResult',r=>{
-      setModal({show:true,title:r.title,body:r.body,onGuess:null,multiCodes:false});
-      setEstado(p=>({...p,usedQuestions:r.usedQuestions}));
+  useEffect(() => {
+    socket.on('connect', () => setSocketId(socket.id));
+    socket.on('updateRoom', setJugadores);
+    socket.on('gameStarted', gs => { setEstado(gs); setEnPartida(true); });
+    socket.on('questionResult', r => {
+      const id = Date.now();
+      setPreguntasVisibles(prev=>[...prev, {id, title:r.title, body:r.body, abierta:true, autor:r.autor}]);
+      setModal({show:true, title:r.title, body:r.body, children:null});
+      if (r.autor === socket.id) setEsperandoCierre(true);
+      setEstado(p => ({...p, usedQuestions:r.usedQuestions}));
     });
-    socket.on('turnChanged',i=>setEstado(p=>({...p,currentPlayerTurn:i})));
-    socket.on('gameOver',({winner,players})=>{
-      setModal({show:true,title:`🎉 ${winner.name} ganó!`,body:players.map(p=>`${p.name}: ${p.code}`).join('\n'),onGuess:null});
+    socket.on('turnChanged', i => setEstado(p => ({...p, currentPlayerTurn:i})));
+    socket.on('gameOver', ({winner, players}) => {
+      setModal({show:true, title:`🎉 ${winner.name} ganó!`, body:players.map(p=>`${p.name}: ${p.code}`).join('\n'), children:null});
       setEnPartida(false);
     });
-    socket.on('playerLeft',()=>setModal({show:true,title:"Jugador salió",body:"El otro jugador se desconectó.",onGuess:null}));
-    return()=>socket.off();
-  },[]);
+  }, []);
 
-  const unirse=()=>{if(!nombre||!sala)return alert("Introduce nombre y sala");socket.emit("joinRoom",{playerName:nombre,roomId:sala});};
-  const comenzar=()=>socket.emit("startGame",{roomId:sala});
-  const lanzarPregunta=i=>{
-    if(!esMiTurno())return;
-    socket.emit("selectQuestion",{roomId:sala,questionIndex:i});
+  const unirse = () => {
+    if (!nombre || !sala) return alert("Introduce nombre y sala");
+    socket.emit('joinRoom', {playerName:nombre, roomId:sala});
+  };
+  const comenzar = () => socket.emit('startGame', {roomId:sala});
+  const esMiTurno = () => estado && socketId === estado.players[estado.currentPlayerTurn].id;
+  const lanzarPregunta = i => {
+    if (!esMiTurno() || esperandoCierre) return;
+    socket.emit('selectQuestion', {roomId:sala, questionIndex:i});
   };
 
-  const abrirAdivinar=()=>{
-    if(!esMiTurno())return;
-    if(estado.mode==="chaos"){
-      const otros=estado.players.filter(p=>p.id!==socketId);
-      setModal({
-        show:true,
-        title:"Adivinar códigos de los otros jugadores",
-        body:"Introduce tus intentos (5 dígitos) para cada jugador:",
-        multiCodes:true,
-        players:otros,
-        onGuess:(codigo,id)=>{
-          if(codigo?.length===5)socket.emit("guessCode",{roomId:sala,guess:codigo,targetId:id});
-        }
-      });
-    }else{
-      setModal({
-        show:true,
-        title:"Adivinar código",
-        body:"Introduce tu intento (5 dígitos):",
-        onGuess:(g)=>{if(g?.length===5)socket.emit("guessCode",{roomId:sala,guess:g});},
-        multiCodes:false
-      });
-    }
-  };
-
-  const esMiTurno=()=>estado&&socketId===estado.players[estado.currentPlayerTurn].id;
-
-  return(
-    <div className="p-4 text-center max-w-3xl">
-      <h1 className="text-3xl font-bold text-teal-400 mb-4">Descifra el Código</h1>
-
-      {!enPartida&&(
-        <div className="bg-gray-800 p-6 rounded-xl">
-          <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded"
-                 value={nombre} onChange={e=>setNombre(e.target.value)}/>
-          <input placeholder="Código de sala" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded"
-                 value={sala} onChange={e=>setSala(e.target.value)}/>
-          <button onClick={unirse} className="w-full py-2 bg-teal-600 hover:bg-teal-500 rounded">Unirse</button>
-          {jugadores.length>=2&&jugadores.length<=4&&(
-            <button onClick={comenzar}
-                    className="w-full mt-2 py-2 bg-green-600 hover:bg-green-500 rounded">
-              Empezar partida
-            </button>
-          )}
-          <div className="mt-3 text-gray-300">
-            Jugadores en sala:
-            {jugadores.map(p=><p key={p.id}>{p.name}</p>)}
-          </div>
+  const abrirAdivinar = () => {
+    if (!esMiTurno()) return;
+    setModal({
+      show:true,
+      title:"Adivinar código",
+      body:"Introduce tu intento de código (5 dígitos):",
+      children:(
+        <div>
+          <input id="guessInput" type="text" maxLength="5"
+            className="w-full p-2 text-black text-center rounded mb-2"
+            placeholder="Ej. 12345"/>
+          <button onClick={()=>{
+            const v=document.getElementById('guessInput').value;
+            if(v&&v.length===5){
+              socket.emit("guessCode",{roomId:sala,guess:v});
+              setModal(m=>({...m,show:false}));
+            }
+          }} className="w-full py-2 bg-rose-600 hover:bg-rose-500 rounded font-bold">Enviar</button>
         </div>
-      )}
+      )
+    });
+  };
 
-      {enPartida&&estado&&(
-        <div className="fade">
-          <h2 className="text-lg mb-2">
-            Turno de: <span className={esMiTurno()?"text-green-400":"text-yellow-400"}>
-              {" "} {estado.players[estado.currentPlayerTurn].name}
-            </span>
-          </h2>
+  const alternarVisibilidad = id =>
+    setPreguntasVisibles(prev=>prev.map(p=>p.id===id?{...p,abierta:!p.abierta}:p));
 
-          {estado.players.map((p,i)=>(
-            <Mano key={i} jugador={p} soyYo={p.id===socketId}/>
-          ))}
+  const cerrarYPasarTurno = (id, autor) => {
+    if (autor!==socketId) return;
+    setPreguntasVisibles(prev=>prev.filter(p=>p.id!==id));
+    setEsperandoCierre(false);
+    socket.emit('closeQuestion',{roomId:sala});
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center w-full max-w-6xl mx-auto p-4 text-center">
+      <h1 className="text-3xl font-bold text-teal-400 mb-6">Descifra el Código</h1>
+
+      {!enPartida ? (
+        <div className="bg-gray-800 p-8 rounded-xl max-w-md w-full">
+          <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded" value={nombre} onChange={e=>setNombre(e.target.value)}/>
+          <input placeholder="Código de sala" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded" value={sala} onChange={e=>setSala(e.target.value)}/>
+          <button onClick={unirse} className="w-full bg-teal-600 hover:bg-teal-500 py-2 rounded">Unirse</button>
+          {jugadores.length>=2&&jugadores.length<=4 && (
+            <button onClick={comenzar} className="w-full mt-2 bg-green-600 hover:bg-green-500 py-2 rounded">Empezar partida</button>
+          )}
+          <div className="mt-3 text-gray-300">{jugadores.map(j=><p key={j.id}>{j.name}</p>)}</div>
+        </div>
+      ) : (
+        estado && (
+        <div className="fade w-full max-w-5xl text-center">
+          <h2 className="text-lg mb-3">Turno de: <span className={esMiTurno()?"text-green-400":"text-yellow-400"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
+          {estado.players.map((p,i)=><Mano key={i} jugador={p} soyYo={p.id===socketId}/>)}
 
           <div className="relative h-56 flex justify-center items-center mt-5">
             {estado.questions.map((q,i)=>{
               if(estado.usedQuestions[i])return null;
               const ang=i*3-20;
               return(
-                <div key={i}
-                     onClick={()=>esMiTurno()&&lanzarPregunta(i)}
-                     className={`card absolute w-48 h-24 flex items-center justify-center text-black font-bold rounded-lg shadow-md border
-                     ${esMiTurno()?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-110':'bg-gray-600 cursor-not-allowed opacity-60'}`}
-                     style={{transform:`rotate(${ang}deg)`,zIndex:50-i}}>
+                <div key={i} onClick={()=>lanzarPregunta(i)}
+                  className={`absolute w-56 h-28 flex items-center justify-center text-black font-bold rounded-xl shadow-md border
+                    ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
+                  style={{transform:`rotate(${ang}deg)`,zIndex:50-i}}>
                   Pregunta
                 </div>
               );
@@ -209,21 +159,46 @@ const App=()=>{
           </div>
 
           <button disabled={!esMiTurno()} onClick={abrirAdivinar}
-            className={`w-full mt-3 py-2 rounded font-bold ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
+            className={`mt-6 w-full max-w-lg py-2 rounded font-bold text-white ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
             Adivinar código
           </button>
         </div>
+      ))}
+
+      {/* PANEL DERECHO */}
+      {preguntasVisibles.length>0 && (
+        <div className="fixed right-4 top-1/2 -translate-y-1/2 w-[400px] bg-gray-800/80 border border-gray-700 rounded-lg shadow-xl p-4 overflow-y-auto max-h-[90vh] fade">
+          <h3 className="text-teal-400 font-semibold text-lg mb-3 text-center">Preguntas activas</h3>
+          {preguntasVisibles.map(p=>(
+            <div key={p.id} className="bg-gray-700/70 rounded p-3 mb-3">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-semibold whitespace-normal break-words w-[240px]">{p.title}</span>
+                <div className="flex-shrink-0 ml-2">
+                  <button className="text-xs bg-emerald-600 px-2 py-1 rounded mr-1" onClick={()=>alternarVisibilidad(p.id)}>
+                    {p.abierta?"Minimizar":"Abrir"}
+                  </button>
+                  {p.autor===socketId && (
+                    <button className="text-xs bg-rose-600 px-2 py-1 rounded" onClick={()=>cerrarYPasarTurno(p.id,p.autor)}>
+                      Cerrar y pasar
+                    </button>
+                  )}
+                </div>
+              </div>
+              {p.abierta && <p className="text-sm whitespace-pre-line break-words">{p.body}</p>}
+            </div>
+          ))}
+        </div>
       )}
 
-      <Modal show={modal.show} title={modal.title} body={modal.body}
-             onClose={()=>setModal({show:false,title:'',body:'',onGuess:null,multiCodes:false,players:[]})}
-             onGuess={modal.onGuess} multiCodes={modal.multiCodes} players={modal.players}/>
+      <Modal show={modal.show} title={modal.title} body={modal.body} onClose={()=>setModal(m=>({...m,show:false}))}>
+        {modal.children}
+      </Modal>
     </div>
   );
 };
 
-const root=ReactDOM.createRoot(document.getElementById("root"));
-root.render(<App/>);
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
 </script>
 </body>
 </html>
