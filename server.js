@@ -20,7 +20,20 @@ const BASE_QUESTIONS = [
   "¿Qué fichas adyacentes tienen el mismo número?",
   "¿Dónde están tus fichas con el número 5? (posiciones 1-5)",
   "¿Cuántas fichas son blancas?",
-  "¿Cuántas fichas son negras?"
+  "¿Cuántas fichas son negras?",
+  "¿Cuánto suman tus fichas centrales? (2-3 jugadores: B y C / 4 jugadores: B y C)",
+  "¿Cuánto suman tus 3 fichas de más a la derecha?",
+  "¿Cuánto suman tus 3 fichas de más a la izquierda?",
+  "¿Cuántas fichas pares tienes? (Se considera que el 0 es un número par)",
+  "¿Dónde están tus fichas con el n.º 5?",
+  "¿Dónde están tus fichas con el n.º 6 o el n.º 7? (Debes elegir un número antes de hacer esta pregunta)",
+  "¿Dónde están tus fichas con el n.º 0?",
+  "¿Dónde están tus fichas con el n.º 3 o el n.º 4? (Debes elegir un número antes de hacer esta pregunta)",
+  "¿Dónde están tus fichas con el n.º 8 o el n.º 9? (Debes elegir un número antes de hacer esta pregunta)",
+  "¿Cuántas de tus fichas tienen el mismo número?",
+  "¿Cuántos de tus fichas tienen un número negro?",
+  "¿Qué fichas adyacentes tienen números consecutivos?",
+  "¿Cuál es la diferencia entre tu número más alto y tu número más bajo?"
 ];
 
 function generateTiles() {
