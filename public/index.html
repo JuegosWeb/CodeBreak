@@ -41,23 +41,55 @@ const Mano=({jugador,soyYo})=>(
   </div>
 );
 
-const Modal=({show,title,body,onClose,onGuess})=>{
-  const[guess,setGuess]=useState('');
+const Modal=({show,title,body,onClose,onGuess,multiCodes,players})=>{
+  const[inputs,setInputs]=useState({});
   if(!show)return null;
-  const enviar=()=>{if(onGuess)onGuess(guess);setGuess('');onClose();};
+
+  const handleChange=(id,value)=>setInputs({...inputs,[id]:value});
+
+  const enviar=()=>{
+    if(onGuess){
+      if(multiCodes){
+        Object.entries(inputs).forEach(([id,value])=>{
+          if(value?.length===5)onGuess(value,id);
+        });
+      }else{
+        if(inputs.single?.length===5)onGuess(inputs.single);
+      }
+    }
+    onClose();
+  };
+
   return(
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 fade">
-      <div className="bg-gray-800 p-6 rounded-xl w-80 border border-gray-600 text-left">
+      <div className="bg-gray-800 p-6 rounded-xl w-96 border border-gray-600 text-left">
         <h2 className="text-lg font-bold text-teal-400 mb-2">{title}</h2>
         <p className="whitespace-pre-line mb-4">{body}</p>
-        {onGuess&&(
-          <input value={guess} onChange={e=>setGuess(e.target.value)} maxLength="5"
-            className="w-full p-2 mb-3 text-center text-black rounded"
-            placeholder="Introduce tu código (5 dígitos)" />
+        
+        {/* Para modo de 4 jugadores */}
+        {multiCodes && players && (
+          <div>
+            {players.map(p=>(
+              <div key={p.id} className="mb-2">
+                <label className="block text-sm mb-1">Código de {p.name}</label>
+                <input type="text" maxLength="5"
+                       onChange={e=>handleChange(p.id,e.target.value)}
+                       className="w-full p-2 text-center text-black rounded"/>
+              </div>
+            ))}
+          </div>
         )}
+
+        {/* Para modos normales */}
+        {!multiCodes && (
+          <input className="w-full p-2 mb-3 text-center text-black rounded"
+                 placeholder="Introduce el código" maxLength="5"
+                 onChange={e=>handleChange("single",e.target.value)} />
+        )}
+
         <button onClick={enviar}
           className="bg-teal-600 hover:bg-teal-500 w-full py-2 rounded font-bold">
-          {onGuess?"Enviar":"Cerrar"}
+          Enviar
         </button>
       </div>
     </div>
@@ -71,14 +103,14 @@ const App=()=>{
   const[estado,setEstado]=useState(null);
   const[enPartida,setEnPartida]=useState(false);
   const[socketId,setSocketId]=useState(null);
-  const[modal,setModal]=useState({show:false,title:'',body:'',onGuess:null});
+  const[modal,setModal]=useState({show:false,title:'',body:'',onGuess:null,multiCodes:false,players:[]});
 
   useEffect(()=>{
     socket.on('connect',()=>setSocketId(socket.id));
     socket.on('updateRoom',setJugadores);
     socket.on('gameStarted',gs=>{setEstado(gs);setEnPartida(true);});
     socket.on('questionResult',r=>{
-      setModal({show:true,title:r.title,body:r.body,onGuess:null});
+      setModal({show:true,title:r.title,body:r.body,onGuess:null,multiCodes:false});
       setEstado(p=>({...p,usedQuestions:r.usedQuestions}));
     });
     socket.on('turnChanged',i=>setEstado(p=>({...p,currentPlayerTurn:i})));
@@ -96,12 +128,32 @@ const App=()=>{
     if(!esMiTurno())return;
     socket.emit("selectQuestion",{roomId:sala,questionIndex:i});
   };
+
   const abrirAdivinar=()=>{
     if(!esMiTurno())return;
-    setModal({show:true,title:"Adivinar código",body:"Introduce tu intento de código de 5 dígitos:",onGuess:(g)=>{
-      if(g?.length===5)socket.emit("guessCode",{roomId:sala,guess:g});
-    }});
+    if(estado.mode==="chaos"){
+      const otros=estado.players.filter(p=>p.id!==socketId);
+      setModal({
+        show:true,
+        title:"Adivinar códigos de los otros jugadores",
+        body:"Introduce tus intentos (5 dígitos) para cada jugador:",
+        multiCodes:true,
+        players:otros,
+        onGuess:(codigo,id)=>{
+          if(codigo?.length===5)socket.emit("guessCode",{roomId:sala,guess:codigo,targetId:id});
+        }
+      });
+    }else{
+      setModal({
+        show:true,
+        title:"Adivinar código",
+        body:"Introduce tu intento (5 dígitos):",
+        onGuess:(g)=>{if(g?.length===5)socket.emit("guessCode",{roomId:sala,guess:g});},
+        multiCodes:false
+      });
+    }
   };
+
   const esMiTurno=()=>estado&&socketId===estado.players[estado.currentPlayerTurn].id;
 
   return(
@@ -131,8 +183,7 @@ const App=()=>{
       {enPartida&&estado&&(
         <div className="fade">
           <h2 className="text-lg mb-2">
-            Turno de:
-            <span className={esMiTurno()?"text-green-400":"text-yellow-400"}>
+            Turno de: <span className={esMiTurno()?"text-green-400":"text-yellow-400"}>
               {" "} {estado.players[estado.currentPlayerTurn].name}
             </span>
           </h2>
@@ -141,7 +192,6 @@ const App=()=>{
             <Mano key={i} jugador={p} soyYo={p.id===socketId}/>
           ))}
 
-          {/* Cartas apiladas */}
           <div className="relative h-56 flex justify-center items-center mt-5">
             {estado.questions.map((q,i)=>{
               if(estado.usedQuestions[i])return null;
@@ -166,8 +216,8 @@ const App=()=>{
       )}
 
       <Modal show={modal.show} title={modal.title} body={modal.body}
-             onClose={()=>setModal({show:false,title:'',body:'',onGuess:null})}
-             onGuess={modal.onGuess}/>
+             onClose={()=>setModal({show:false,title:'',body:'',onGuess:null,multiCodes:false,players:[]})}
+             onGuess={modal.onGuess} multiCodes={modal.multiCodes} players={modal.players}/>
     </div>
   );
 };
