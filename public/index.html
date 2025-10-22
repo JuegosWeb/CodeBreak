@@ -1,244 +1,209 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>Descifra el Código</title>
-  <style>
-    html, body { height: 100%; margin: 0; padding: 0; }
-    body {
-      display: flex; justify-content: center; align-items: center;
-      min-height: 100vh; height: 100vh;
-      background: #181820;
-      font-family: Arial, sans-serif;
-      color: #eee;
-      font-size: 1.23em;
-    }
-    #containerFlex {
-      width: 100vw; min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
-    }
-    #gameContainer {
-      background: #23232b;
-      padding: 35px 24px 28px 24px;
-      border-radius: 24px;
-      box-shadow: 0 4px 28px #000a;
-      width: 560px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      position: relative;
-    }
-    h2 {
-      margin: 0 0 14px 0;
-      text-align: center;
-      color: #f3f3f3;
-      font-size: 2.7em;
-      font-weight: bold;
-      letter-spacing: 3px;
-    }
-    #status {
-      margin: 13px 0 5px 0;
-      text-align: center;
-      font-size: 1.2em;
-    }
-    input, button {
-      background: #23232b;
-      color: #fafafa;
-      border: 2px solid #444;
-      border-radius: 15px;
-      padding: 12px 15px;
-      margin: 5px 0 5px 0;
-      font-size: 1.13em;
-      text-align: center;
-      box-sizing: border-box;
-    }
-    input:focus { outline: 2px solid #25b35f;}
-    button {
-      cursor:pointer; transition:background 0.16s, transform 0.12s;
-      position: relative;
-      z-index: 1;
-      overflow: hidden;
-    }
-    button:hover { background: #222; }
-    button:active {
-      animation: btnpulse 0.21s cubic-bezier(.51,1.65,.56,1) both;
-    }
-    @keyframes btnpulse {
-      0%   { transform: scale(1);}
-      55%  { transform: scale(0.94);}
-      100% { transform: scale(1);}
-    }
-    .btn-shake {
-      animation: shake 0.23s both;
-    }
-    @keyframes shake {
-      0% { transform: translateX(0); }
-      22% { transform: translateX(-15px); }
-      45% { transform: translateX(13px); }
-      66% { transform: translateX(-8px); }
-      79% { transform: translateX(7px); }
-      100% { transform: translateX(0); }
-    }
-    .ficha { display: inline-block; width: 46px; height: 46px; margin: 2px; border-radius: 13px; text-align: center; line-height: 46px; font-weight: bold; font-size: 1.2em;}
-    .negro { background: #222; color: #fff;}
-    .blanco { background: #222; color: #fff; border: 3px solid #666;}
-    .oculta { background: #555; color: #888; font-size: 1.1em;}
-    .jugador { margin-bottom: 13px;}
-    .prediccion { margin: 7px 0 11px 0; display: flex; align-items: center; justify-content: center; gap: 8px;}
-    a, u { color: #25b35f; }
-    .footer-nahuel {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: 19px;
-      font-size: 1em;
-      color: #99a;
-      opacity: 0;
-      transition: opacity 0.7s;
-      pointer-events: none;
-      position: absolute;
-      left: 0; right: 0; bottom: 7px;
-    }
-    #gameContainer:hover .footer-nahuel { opacity: 0.7; pointer-events: auto; }
-    .footer-nahuel.oculto { display: none; }
-    #tablero {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-  </style>
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Descifra el Código - Multijugador</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  @keyframes rise {0%{transform:translateY(0)}50%{transform:translateY(-8px)}100%{transform:translateY(0)}}
+  .card:hover{animation:rise .4s ease;}
+  .fade{animation:fade .4s ease;}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+</style>
 </head>
-<body>
-<div id="containerFlex">
-<div id="gameContainer">
-  <h2>Descifra el Código</h2>
-  <input id="playerName" placeholder="Tu nombre">
-  <input id="roomId" placeholder="ID de sala (ej. sala1)">
-  <button id="btnEntrar" onclick="validateAndJoin()">Entrar a la sala</button>
-  <button id="btnEmpezar" onclick="empezarPartida()" style="display:none;">Empezar partida</button>
-  <div id="status"></div>
-  <div id="tablero"></div>
-  <div class="footer-nahuel" id="nahuelFooter">
-    Desarrollado por Nahuel
+<body class="bg-gradient-to-br from-gray-900 to-black text-white flex flex-col min-h-screen items-center justify-center">
+<div id="root"></div>
+<script type="text/babel">
+
+const {useState,useEffect}=React;
+const socket=io();
+
+// --- FICHAS ---
+const Ficha=({numero,color,oculta})=>{
+  const style=`w-12 h-14 flex items-center justify-center rounded-lg m-1 border text-xl font-bold`;
+  if(oculta)return<div className={`${style} bg-gray-700 border-gray-600 text-gray-300`}>?</div>;
+  return<div className={`${style} ${color==='blanco'?'bg-white text-black border-gray-400':'bg-black text-white border-gray-600'}`}>{numero}</div>;
+};
+
+// --- MANO ---
+const Mano=({jugador,soyYo})=>(
+  <div className="p-3 bg-gray-800/60 rounded-xl my-2 fade">
+    <h3 className="text-teal-300 font-semibold mb-1">{jugador.name} {soyYo && '(Tú)'}</h3>
+    <div className="flex justify-center flex-wrap">
+      {jugador.hand.map((f,i)=>
+        <Ficha key={i} numero={f.numero} color={f.color} oculta={!soyYo}/>
+      )}
+    </div>
+    {soyYo && <p className="mt-2 text-sm text-teal-400">Tu código: <span className="font-mono text-white tracking-widest">{jugador.code}</span></p>}
   </div>
-</div>
-</div>
+);
 
-<script>
-let roomId, playerName, myId, jugadores = [], jugadoresEstadoGlobal = [], codigoCentralGlobal = null;
-let partidaIniciada = false;
+// --- MODAL UNIVERSAL ---
+const Modal=({show,onClose,title,body,onGuess})=>{
+  const[guess,setGuess]=useState('');
+  if(!show)return null;
+  const handleSubmit=()=>{
+    if(onGuess)onGuess(guess);
+    onClose();
+  };
+  return(
+    <div className="fixed inset-0 flex items-center justify-center bg-black/70 fade z-50">
+      <div className="bg-gray-800 p-6 rounded-xl w-80 border border-gray-600 shadow-lg text-left">
+        <h2 className="text-teal-400 font-bold text-lg mb-3">{title}</h2>
+        <p className="whitespace-pre-line mb-4">{body}</p>
+        {onGuess && (
+          <input value={guess} onChange={e=>setGuess(e.target.value)} maxLength="5"
+            className="w-full mb-3 p-2 text-center text-black rounded" placeholder="Introduce tu código (5 dígitos)"/>
+        )}
+        <button onClick={handleSubmit} className="bg-teal-600 hover:bg-teal-500 w-full py-2 rounded font-bold">
+          {onGuess?'Enviar':'Cerrar'}
+        </button>
+      </div>
+    </div>
+  );
+};
 
-const socket = io();
+// --- APP ---
+const App=()=>{
+  const[nombre,setNombre]=useState('');
+  const[sala,setSala]=useState('');
+  const[jugadores,setJugadores]=useState([]);
+  const[estado,setEstado]=useState(null);
+  const[enPartida,setEnPartida]=useState(false);
+  const[socketId,setSocketId]=useState(null);
 
-function validateAndJoin() {
-  const name = document.getElementById('playerName').value.trim();
-  const sala = document.getElementById('roomId').value.trim();
-  const btn = document.getElementById('btnEntrar');
-  if (name && sala) {
-    joinRoom();
-    return;
-  }
-  btn.classList.remove('btn-shake');
-  void btn.offsetWidth;
-  btn.classList.add('btn-shake');
-}
+  // Modal dinámico
+  const[modal,setModal]=useState({show:false,title:'',body:'',onGuess:null});
 
-function joinRoom(){
-  playerName = document.getElementById('playerName').value;
-  roomId = document.getElementById('roomId').value;
-  socket.emit('joinRoom', { roomId, playerName });
-  document.getElementById('playerName').style.display = 'none';
-  document.getElementById('roomId').style.display = 'none';
-  document.getElementById('btnEntrar').style.display = 'none';
-  document.getElementById('status').innerText = `Esperando jugadores en ${roomId}...`;
-  document.getElementById('nahuelFooter').classList.remove('oculto');
-}
+  useEffect(()=>{
+    socket.on('connect',()=>setSocketId(socket.id));
+    socket.on('updateRoom',setJugadores);
+    socket.on('gameStarted',gs=>{setEstado(gs);setEnPartida(true);});
 
-socket.on('connect', () => { myId = socket.id; });
+    socket.on('questionResult',d=>{
+      setModal({show:true,title:d.title,body:d.body,onGuess:null});
+      setEstado(p=>({...p,usedQuestions:d.usedQuestions}));
+    });
 
-socket.on('playerList', pjs => {
-  jugadores = pjs;
-  document.getElementById('status').innerHTML = 'Jugadores conectados:<br>' + jugadores.map(p=>p.name).join('<br>');
-  document.getElementById("btnEmpezar").style.display = jugadores.length >= 2 ? "" : "none";
-});
+    socket.on('turnChanged',i=>setEstado(p=>({...p,currentPlayerTurn:i})));
 
-function empezarPartida() { 
-  socket.emit('empezarPartida', { roomId });
-  partidaIniciada = true;
-  document.getElementById('nahuelFooter').classList.add('oculto');
-}
+    socket.on('gameOver',({winner,players})=>{
+      setModal({
+        show:true,
+        title:`🎉 ${winner.name} ganó!`,
+        body:players.map(p=>p.name+': '+p.code).join('\n'),
+        onGuess:null
+      });
+      setEnPartida(false);
+      setEstado(null);
+    });
 
-socket.on('partidaEmpezada', ({ jugadoresEstado, codigoCentral }) => {
-  document.getElementById("btnEmpezar").style.display = "none";
-  document.getElementById('status').innerText = '¡La partida ha comenzado!';
-  jugadoresEstadoGlobal = jugadoresEstado;
-  codigoCentralGlobal = codigoCentral;
-  partidaIniciada = true;
-  document.getElementById('nahuelFooter').classList.add('oculto');
-  mostrarTablero(jugadoresEstadoGlobal, codigoCentralGlobal);
-});
+    socket.on('playerLeft',()=>{
+      setModal({show:true,title:'Desconexión',body:'El otro jugador salió.',onGuess:null});
+      setEnPartida(false);
+    });
 
-function mostrarTablero(jugadoresEstado, codigoCentral) {
-  let html = ``;
-  jugadoresEstado.forEach(j => {
-    html += `<div class="jugador" style="text-align:center;"><b>${j.name}:</b> `;
-    j.codigo.forEach(f => {
-      if (j.id === myId) {
-        html += `<span class="ficha ${f.color}">${f.numero}</span>`;
-      } else {
-        html += `<span class="ficha oculta">?</span>`;
+    return()=>socket.off();
+  },[]);
+
+  const unirse=()=>!nombre||!sala?alert('Introduce nombre y sala'):socket.emit('joinRoom',{playerName:nombre,roomId:sala});
+  const comenzar=()=>socket.emit('startGame',{roomId:sala});
+  const lanzar=i=>{
+    if(!esMiTurno())return;
+    socket.emit('selectQuestion',{roomId:sala,questionIndex:i});
+  };
+
+  const abrirAdivinar=()=>{
+    if(!esMiTurno())return;
+    setModal({
+      show:true,
+      title:'Adivinar código',
+      body:'Introduce tu intento de código de 5 dígitos:',
+      onGuess:(g)=>{
+        if(g?.length===5)socket.emit('guessCode',{roomId:sala,guess:g});
       }
     });
-    html += '</div>';
-  });
-  if (jugadoresEstado.length > 1) {
-    html += `<div style="margin-top:9px;font-size:1em;"><b>Intenta adivinar el código de los otros jugadores:</b></div>`;
-    jugadoresEstado.forEach(j => {
-      if (j.id !== myId) {
-        html += `
-          <div class="prediccion">
-            <label for="intento_${j.id}">Código de ${j.name}:</label>
-            <input id="intento_${j.id}" type="text" maxlength="5" style="width:128px;">
-            <button onclick="adivinarCodigoJugador('${j.id}')">Probar</button>
-            <span id="resultado_${j.id}" style="font-size:1em;margin-left:7px"></span>
-          </div>
-        `;
-      }
-    });
-  }
-  if (jugadoresEstado.length === 3 && codigoCentral && codigoCentral.length > 0) {
-    html += `
-      <div style="margin:11px 0 8px 0;">
-        <u>Las fichas restantes forman el código central.</u>
-      </div>
-      <div style="display:flex;align-items:center;gap:15px;">
-        <label for="codigoCentral"><b>Tu intento del código central:</b></label>
-        <input id="codigoCentral" type="text" maxlength="5" style="width:142px;padding:12px;">
-        <button onclick="enviarIntentoCentral()">Enviar</button>
-        <span id="resultadoCentral"></span>
-      </div>
-    `;
-  }
-  document.getElementById('tablero').innerHTML = html;
-}
+  };
 
-function adivinarCodigoJugador(jid){
-  let intento = document.getElementById('intento_' + jid).value;
-  let jugador = jugadoresEstadoGlobal.find(j => j.id === jid);
-  if (!jugador) return;
-  let codigoReal = jugador.codigo.map(f=>f.numero).join('');
-  let res = (intento === codigoReal) ? "¡Correcto!" : "No es correcto.";
-  document.getElementById('resultado_' + jid).textContent = res;
-}
+  const esMiTurno=()=>estado && socketId===estado.players[estado.currentPlayerTurn].id;
 
-function enviarIntentoCentral() {
-  let codigoReal = codigoCentralGlobal.map(f => f.numero).join('');
-  let intento = document.getElementById('codigoCentral').value;
-  let res = (intento === codigoReal) ? "¡Adivinaste el código central!" : "No es correcto.";
-  document.getElementById('resultadoCentral').textContent = res;
-}
+  return(
+  <div className="text-center max-w-3xl p-4">
+    <h1 className="text-3xl font-bold text-teal-400 mb-4">Descifra el Código</h1>
+
+    {!enPartida && (
+      <div className="bg-gray-800 p-6 rounded-xl w-full sm:w-96">
+        <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded"
+          value={nombre} onChange={e=>setNombre(e.target.value)}/>
+        <input placeholder="Código de sala" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded"
+          value={sala} onChange={e=>setSala(e.target.value)}/>
+        <button onClick={unirse} className="w-full py-2 bg-teal-600 hover:bg-teal-500 rounded">Unirse</button>
+        {jugadores.length===2 && (
+          <button onClick={comenzar} className="w-full mt-2 py-2 bg-green-600 hover:bg-green-500 rounded">
+            Empezar partida
+          </button>
+        )}
+        <div className="mt-3 text-gray-300">
+          Jugadores en sala:
+          {jugadores.map(j=><p key={j.id}>{j.name}</p>)}
+        </div>
+      </div>
+    )}
+
+    {enPartida && estado && (
+      <div className="fade">
+        <h2 className="text-lg mb-2">
+          Turno de:
+          <span className={esMiTurno() ? "text-green-400" : "text-yellow-400"}>
+            {' '}{estado.players[estado.currentPlayerTurn].name}
+          </span>
+        </h2>
+
+        {estado.players.map((p,i)=>
+          <Mano key={i} jugador={p} soyYo={socketId===p.id}/>
+        )}
+
+        <div className="relative h-56 flex justify-center items-center mt-6">
+          {estado.questions.map((q,i)=>{
+            if(estado.usedQuestions[i])return null;
+            const ang=i*3-20;
+            return(
+              <div
+                key={i}
+                onClick={()=>esMiTurno()&&lanzar(i)}
+                className={`card absolute w-48 h-24 flex items-center justify-center text-black font-bold rounded-lg shadow-md border 
+                ${esMiTurno()?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-110':
+                'bg-gray-600 cursor-not-allowed opacity-60'}`}
+                style={{transform:`rotate(${ang}deg)`,zIndex:50-i}}>
+                Pregunta
+              </div>
+            );
+          })}
+        </div>
+
+        <button disabled={!esMiTurno()} onClick={abrirAdivinar}
+          className={`w-full mt-3 py-2 rounded font-bold transition ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
+          Adivinar código
+        </button>
+      </div>
+    )}
+
+    <Modal show={modal.show}
+           onClose={()=>setModal({show:false,title:'',body:'',onGuess:null})}
+           title={modal.title}
+           body={modal.body}
+           onGuess={modal.onGuess}/>
+  </div>
+  );
+};
+
+const root=ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
 </script>
 </body>
 </html>
