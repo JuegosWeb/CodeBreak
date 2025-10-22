@@ -47,33 +47,140 @@ function generateTiles() {
 
 function getQuestionAnswer(q, hand) {
   switch (q) {
-    case BASE_QUESTIONS[0]: return hand.reduce((s, t) => s + t.numero, 0).toString();
-    case BASE_QUESTIONS[1]: return hand.filter(t => t.numero % 2 !== 0).length.toString();
-    case BASE_QUESTIONS[2]: return hand.filter(t => t.numero % 2 === 0).length.toString();
-    case BASE_QUESTIONS[3]: return hand.filter(t => t.color === 'blanco').reduce((s, t) => s + t.numero, 0).toString();
-    case BASE_QUESTIONS[4]: return hand.filter(t => t.color === 'negro').reduce((s, t) => s + t.numero, 0).toString();
-    case BASE_QUESTIONS[5]: {
-      const r = []; for (let i = 0; i < hand.length - 1; i++) if (hand[i].color === hand[i + 1].color) r.push(`${i + 1} y ${i + 2}`);
-      return r.length ? r.join(', ') : "Ninguna";
-    }
-    case BASE_QUESTIONS[6]: {
-      const r = []; for (let i = 0; i < hand.length - 1; i++) if (hand[i].numero === hand[i + 1].numero) r.push(`${i + 1} y ${i + 2}`);
-      return r.length ? r.join(', ') : "Ninguna";
-    }
-    case BASE_QUESTIONS[7]: {
-      const p = []; hand.forEach((t, i) => { if (t.numero === 5) p.push(i + 1); });
-      return p.length ? p.join(', ') : "No tienes";
-    }
-    case BASE_QUESTIONS[8]: return hand.filter(t => t.color === 'blanco').length.toString();
-    case BASE_QUESTIONS[9]: return hand.filter(t => t.color === 'negro').length.toString();
-    default: return "Pregunta no reconocida.";
+    case BASE_QUESTIONS[0]: // ¿Cuánto suman tus fichas?
+      return hand.reduce((s, t) => s + t.numero, 0).toString();
+
+    case BASE_QUESTIONS[1]: // ¿Cuántas fichas impares tienes?
+      return hand.filter(t => t.numero % 2 !== 0).length.toString();
+
+    case BASE_QUESTIONS[2]: // ¿Cuántas fichas pares tienes? (El 0 es par)
+    case BASE_QUESTIONS[13]: // Repetida
+      return hand.filter(t => t.numero % 2 === 0).length.toString();
+
+    case BASE_QUESTIONS[3]: // ¿Cuánto suman tus números blancos?
+      return hand.filter(t => t.color === 'blanco').reduce((s, t) => s + t.numero, 0).toString();
+
+    case BASE_QUESTIONS[4]: // ¿Cuánto suman tus números negros?
+      return hand.filter(t => t.color === 'negro').reduce((s, t) => s + t.numero, 0).toString();
+
+    case BASE_QUESTIONS[5]: // ¿Qué fichas adyacentes tienen el mismo color?
+      {
+        const r = [];
+        for (let i = 0; i < hand.length - 1; i++)
+          if (hand[i].color === hand[i + 1].color)
+            r.push(`${i + 1} y ${i + 2}`);
+        return r.length ? r.join(', ') : "Ninguna";
+      }
+
+    case BASE_QUESTIONS[6]: // ¿Qué fichas adyacentes tienen el mismo número?
+      {
+        const r = [];
+        for (let i = 0; i < hand.length - 1; i++)
+          if (hand[i].numero === hand[i + 1].numero)
+            r.push(`${i + 1} y ${i + 2}`);
+        return r.length ? r.join(', ') : "Ninguna";
+      }
+
+    case BASE_QUESTIONS[7]: // ¿Dónde están tus fichas con el número 5? (posiciones 1-5)
+    case BASE_QUESTIONS[14]: // ¿Dónde están tus fichas con el n.º 5?
+      {
+        const p = [];
+        hand.forEach((t, i) => { if (t.numero === 5) p.push(i + 1); });
+        return p.length ? p.join(', ') : "No tienes";
+      }
+
+    case BASE_QUESTIONS[8]: // ¿Cuántas fichas son blancas?
+      return hand.filter(t => t.color === 'blanco').length.toString();
+
+    case BASE_QUESTIONS[9]: // ¿Cuántas fichas son negras?
+      return hand.filter(t => t.color === 'negro').length.toString();
+
+    case BASE_QUESTIONS[10]: // ¿Cuánto suman tus fichas centrales?
+      if(hand.length >= 3)
+        return (hand[1].numero + hand[2].numero).toString();
+      else if(hand.length === 2)
+        return hand[1].numero.toString();
+      else
+        return "Pregunta no aplicable";
+
+    case BASE_QUESTIONS[11]: // ¿Cuánto suman tus 3 fichas de más a la derecha?
+      if(hand.length >= 3)
+        return hand.slice(-3).reduce((s, t) => s + t.numero, 0).toString();
+      else
+        return "Pregunta no aplicable";
+
+    case BASE_QUESTIONS[12]: // ¿Cuánto suman tus 3 fichas de más a la izquierda?
+      if(hand.length >= 3)
+        return hand.slice(0,3).reduce((s, t) => s + t.numero, 0).toString();
+      else
+        return "Pregunta no aplicable";
+
+    case BASE_QUESTIONS[15]: // ¿Dónde están tus fichas con el n.º 6 o el n.º 7?
+      {
+        const p = [];
+        hand.forEach((t, i) => { if (t.numero === 6 || t.numero === 7) p.push(`${t.numero} en pos ${i + 1}`); });
+        return p.length ? p.join(', ') : "No tienes";
+      }
+
+    case BASE_QUESTIONS[16]: // ¿Dónde están tus fichas con el n.º 0?
+      {
+        const p = [];
+        hand.forEach((t, i) => { if (t.numero === 0) p.push(i + 1); });
+        return p.length ? p.join(', ') : "No tienes";
+      }
+
+    case BASE_QUESTIONS[17]: // ¿Dónde están tus fichas con el n.º 3 o el n.º 4?
+      {
+        const p = [];
+        hand.forEach((t, i) => { if (t.numero === 3 || t.numero === 4) p.push(`${t.numero} en pos ${i + 1}`); });
+        return p.length ? p.join(', ') : "No tienes";
+      }
+
+    case BASE_QUESTIONS[18]: // ¿Dónde están tus fichas con el n.º 8 o el n.º 9?
+      {
+        const p = [];
+        hand.forEach((t, i) => { if (t.numero === 8 || t.numero === 9) p.push(`${t.numero} en pos ${i + 1}`); });
+        return p.length ? p.join(', ') : "No tienes";
+      }
+
+    case BASE_QUESTIONS[19]: // ¿Cuántas de tus fichas tienen el mismo número?
+      {
+        const counts = {};
+        hand.forEach(t => counts[t.numero] = (counts[t.numero] || 0) + 1);
+        const repetidas = Object.values(counts).filter(c => c > 1).reduce((a,b) => a + b, 0);
+        return repetidas.toString();
+      }
+
+    case BASE_QUESTIONS[20]: // ¿Cuántos de tus fichas tienen un número negro?
+      return hand.filter(t => t.color === 'negro').length.toString();
+
+    case BASE_QUESTIONS[21]: // ¿Qué fichas adyacentes tienen números consecutivos?
+      {
+        const r = [];
+        for (let i = 0; i < hand.length - 1; i++)
+          if (Math.abs(hand[i].numero - hand[i+1].numero) === 1)
+            r.push(`${i + 1} y ${i + 2}`);
+        return r.length ? r.join(', ') : "Ninguna";
+      }
+
+    case BASE_QUESTIONS[22]: // ¿Cuál es la diferencia entre tu número más alto y tu número más bajo?
+      {
+        const nums = hand.map(t=>t.numero);
+        if(!nums.length) return "No tienes fichas";
+        return (Math.max(...nums)-Math.min(...nums)).toString();
+      }
+
+    default:
+      return "Pregunta no reconocida.";
   }
 }
 
 const rooms = {};
 
+// ---- SOCKET Y RESTO DEL SERVIDOR ----
+
 io.on('connection', (socket) => {
-  // === Unirse a sala ===
+  // Unirse a sala
   socket.on('joinRoom', ({ playerName, roomId }) => {
     if (!playerName || !roomId) {
       socket.emit('error', 'Nombre y sala requeridos.');
@@ -99,7 +206,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('updateRoom', room.players);
   });
 
-  // === Iniciar partida ===
+  // Iniciar partida
   socket.on('startGame', ({ roomId }) => {
     const room = rooms[roomId];
     if (!room || room.gameState) return;
@@ -141,7 +248,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('gameStarted', room.gameState);
   });
 
-  // === Seleccionar pregunta ===
+  // Seleccionar pregunta
   socket.on('selectQuestion', ({ roomId, questionIndex }) => {
     const room = rooms[roomId];
     if (!room || !room.gameState) return;
@@ -168,7 +275,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // === Cerrar pregunta y pasar turno ===
+  // Cerrar pregunta y pasar turno
   socket.on('closeQuestion', ({ roomId }) => {
     const room = rooms[roomId];
     if (!room || !room.gameState) return;
@@ -180,7 +287,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('turnChanged', g.currentPlayerTurn);
   });
 
-  // === Adivinar código ===
+  // Adivinar código
   socket.on('guessCode', ({ roomId, guess }) => {
     const room = rooms[roomId];
     if (!room || !room.gameState) return;
@@ -218,7 +325,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // === Desconexión ===
+  // Desconexión
   socket.on('disconnect', () => {
     for (const r in rooms) {
       const room = rooms[r];
@@ -249,7 +356,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// === Servir frontend ===
+// Servir frontend
 app.use(express.static(path.join(__dirname, 'public')));
 app.use((req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
