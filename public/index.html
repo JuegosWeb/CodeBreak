@@ -10,7 +10,6 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
-  /* === Texto invisible © 2025 Nahuel === */
   .hidden-text {
     position: fixed;
     bottom: 1.5rem;
@@ -60,7 +59,6 @@
   }
 </style>
 </head>
-
 <body class="bg-gradient-to-b from-gray-900 to-black text-white flex items-center justify-center min-h-screen overflow-hidden">
 <div id="root"></div>
 
@@ -155,8 +153,7 @@ const App = () => {
     socket.on('connect', () => setSocketId(socket.id));
     socket.on('updateRoom', players => {
       setJugadores(players);
-      // Si la partida ya empezó y la sala se actualiza, es que alguien se fue o se unió
-      if (enPartida && players.length < 2) { // Asumimos que la partida no puede continuar con menos de 2
+      if (enPartida && players.length < 2) {
         showToast("La partida terminó porque no hay suficientes jugadores.", "error");
         setEnPartida(false);
         setEstado(null);
@@ -166,11 +163,14 @@ const App = () => {
     socket.on('questionResult', r => {
       const id = Date.now();
       setPreguntasVisibles(prev=>[...prev, {id, title:r.title, body:r.body, abierta:true, autor:r.autor}]);
-      setModal({show:true, title:r.title, body:r.body, modalType:null}); // Usamos modal para mostrar el resultado, pero sin input.
+      setModal({show:true, title:r.title, body:r.body, modalType:null});
       if (r.autor === socket.id) setEsperandoCierre(true);
       setEstado(p => ({...p, usedQuestions:r.usedQuestions}));
     });
-    socket.on('turnChanged', i => setEstado(p => ({...p, currentPlayerTurn:i})));
+    socket.on('turnChanged', i => {
+      setEstado(p => ({...p, currentPlayerTurn:i}));
+      setEsperandoCierre(false); // RESETEAR cuando cambie el turno
+    });
     socket.on('gameOver', ({winner, players}) => {
       setModal({show:true, title:`🎉 ${winner.name} ganó!`, body:players.map(p=>`${p.name}: ${p.code}`).join('\n'), modalType:null});
       setEnPartida(false);
@@ -195,7 +195,7 @@ const App = () => {
       socket.off('roomFull');
       socket.off('playerLeft');
     };
-  }, [enPartida]); // Dependencia en enPartida para resetear handlers si se sale de la partida
+  }, [enPartida]);
 
   const unirse = () => {
     if (!nombre || !sala) {
@@ -209,6 +209,11 @@ const App = () => {
   const lanzarPregunta = i => {
     if (!esMiTurno() || esperandoCierre) return;
     socket.emit('selectQuestion', {roomId:sala, questionIndex:i});
+  };
+
+  const pasarTurno = () => {
+    if (!esMiTurno()) return;
+    socket.emit('closeQuestion', {roomId:sala});
   };
 
   const handleSubmitGuess = (guess) => {
@@ -233,20 +238,12 @@ const App = () => {
   const alternarVisibilidad = id =>
     setPreguntasVisibles(prev=>prev.map(p=>p.id===id?{...p,abierta:!p.abierta}:p));
 
-  const cerrarYPasarTurno = (id, autor) => {
-    if (autor!==socketId) return; // Solo el autor puede cerrar su pregunta
-    setPreguntasVisibles(prev=>prev.filter(p=>p.id!==id));
-    setEsperandoCierre(false);
-    socket.emit('closeQuestion',{roomId:sala});
-  };
-
   const totalPlayersInLobby = jugadores.length;
-  const maxPlayers = 4; // Hardcoded, consider getting from server if variable
+  const maxPlayers = 4;
 
   return (
     <div className="flex flex-col items-center justify-center w-full max-w-6xl mx-auto p-4 text-center">
       <h1 className="text-3xl font-bold text-teal-400 mb-6">Descifra el Código</h1>
-
       {!enPartida ? (
         <div className="bg-gray-800 p-8 rounded-xl max-w-md w-full">
           <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white" value={nombre} onChange={e=>setNombre(e.target.value)}/>
@@ -268,32 +265,37 @@ const App = () => {
           <h2 className="text-lg mb-3">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
           {estado.players.map((p,i)=><Mano key={i} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()}/>)}
 
-          <div className="relative h-56 flex justify-center items-center mt-5">
-            {estado.questions.map((q,i)=>{
+          <div className="relative h-[300px] flex justify-center items-center mt-5">
+            {estado.questions && estado.questions.map((q,i)=>{
               if(estado.usedQuestions[i])return null;
-              const ang=i*5-20; // Ajustado para mejor visualización con 10 preguntas
-              return(
+              const ang = (i - estado.questions.length / 2) * 7;
+              return (
                 <div key={i} onClick={()=>lanzarPregunta(i)}
-                  className={`absolute w-56 h-28 flex items-center justify-center text-black font-bold rounded-xl shadow-md border
-                    ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105 transition-transform duration-200 ease-in-out':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
-                  style={{transform:`rotate(${ang}deg)`,zIndex:50-i}}>
+                  className={`absolute left-1/2 top-1/2 w-56 h-28 flex items-center justify-center text-black font-bold rounded-xl shadow-md border
+                    ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105 transition-transform':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
+                  style={{
+                    transform: `translate(-50%, -50%) rotate(${ang}deg)`,
+                    zIndex: estado.questions.length - i
+                  }}>
                   Pregunta {i + 1}
                 </div>
               );
             })}
-            {estado.questions.every(q => estado.usedQuestions[estado.questions.indexOf(q)]) && (
-                <div className="absolute text-gray-400 text-lg font-bold">No quedan preguntas.</div>
-            )}
           </div>
 
-          <button disabled={!esMiTurno()} onClick={abrirAdivinar}
-            className={`mt-6 w-full max-w-lg py-2 rounded font-bold text-white ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
-            Adivinar código
-          </button>
+          <div className="flex flex-col items-center w-full max-w-lg mx-auto">
+            <button disabled={!esMiTurno()} onClick={abrirAdivinar}
+              className={`mt-6 w-full py-2 rounded font-bold text-white ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
+              Adivinar código
+            </button>
+            <button disabled={!esMiTurno()} onClick={pasarTurno}
+              className={`mt-3 w-full py-2 rounded font-bold text-white ${esMiTurno()?'bg-yellow-600 hover:bg-yellow-500':'bg-gray-700 cursor-not-allowed'}`}>
+              Pasar turno
+            </button>
+          </div>
         </div>
       ))}
 
-      {/* PANEL DERECHO */}
       {preguntasVisibles.length>0 && (
         <div className="fixed right-4 top-1/2 -translate-y-1/2 w-[400px] bg-gray-800/80 border border-gray-700 rounded-lg shadow-xl p-4 overflow-y-auto max-h-[90vh] fade">
           <h3 className="text-teal-400 font-semibold text-lg mb-3 text-center">Preguntas activas</h3>
@@ -305,13 +307,6 @@ const App = () => {
                   <button className="text-xs bg-emerald-600 px-2 py-1 rounded mr-1 hover:bg-emerald-500" onClick={()=>alternarVisibilidad(p.id)}>
                     {p.abierta?"Minimizar":"Abrir"}
                   </button>
-                  {p.autor===socketId && (
-                    <button className={`text-xs bg-rose-600 px-2 py-1 rounded hover:bg-rose-500 ${esperandoCierre ? 'opacity-100' : 'opacity-50 cursor-not-allowed'}`}
-                            onClick={()=>cerrarYPasarTurno(p.id,p.autor)}
-                            disabled={!esperandoCierre}>
-                      Cerrar y pasar
-                    </button>
-                  )}
                 </div>
               </div>
               {p.abierta && <p className="text-sm whitespace-pre-line break-words">{p.body}</p>}
@@ -330,5 +325,6 @@ const App = () => {
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);
 </script>
+<div class="hidden-text">© 2025 Nahuel</div>
 </body>
 </html>
