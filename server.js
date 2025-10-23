@@ -356,8 +356,16 @@ io.on('connection', (socket) => {
   });
 });
 
-// Servir frontend
-app.use(express.static(path.join(__dirname, 'public')));
+// servir static asegurando charset en .html
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    }
+  }
+}));
+
+// fallback (ruta única)
 app.use((req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 server.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
