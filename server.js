@@ -233,15 +233,18 @@ io.on('connection', (socket) => {
 
     const mode = numPlayers === 2 ? "versus" : numPlayers === 3 ? "missing" : "chaos";
 
+    // determine starter: the player who requested startGame (usually room creator)
+    const starterIndex = room.players.findIndex(p => p.id === socket.id);
     room.gameState = {
       mode,
       missing: missingTiles ? { hand: missingTiles, code: missingCode } : null,
       players: room.players.map((p, i) => ({
         id: p.id, name: p.name, hand: hands[i], code: hands[i].map(t => t.numero).join(''), solved: false
       })),
-      questions: [...BASE_QUESTIONS].sort(() => Math.random() - 0.5),
+      questions: [...BASE_QUESTIONS].sort(() => Math.random() -0.5),
       usedQuestions: new Array(BASE_QUESTIONS.length).fill(false),
-      currentPlayerTurn: Math.floor(Math.random() * numPlayers)
+      // Start with the player who requested the start (usually the creator)
+      currentPlayerTurn: (starterIndex >=0) ? starterIndex :0
     };
 
     console.log(`Partida iniciada en sala ${roomId}. Modo: ${room.gameState.mode}`);
@@ -352,6 +355,24 @@ io.on('connection', (socket) => {
           }
         }
       }
+    }
+  });
+
+  // Leave room (client requests to leave before disconnect)
+  socket.on('leaveRoom', ({ roomId }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    const idx = room.players.findIndex(p => p.id === socket.id);
+    if (idx !== -1) {
+      const playerName = room.players[idx].name;
+      room.players.splice(idx,1);
+      socket.leave(roomId);
+      if (room.players.length ===0) {
+        delete rooms[roomId];
+      } else {
+        io.to(roomId).emit('updateRoom', room.players);
+      }
+      console.log(`${playerName} left room ${roomId}`);
     }
   });
 });

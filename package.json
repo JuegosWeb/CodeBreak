@@ -5,13 +5,21 @@
   "main": "index.js",
   "scripts": {
     "build": "babel src -d lib",
+    "build:tailwind": "npx tailwindcss -i ./src/input.css -o ./public/styles.css --minify --content \"./public/index.html\" ./src/**/*.{js,jsx}",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@tailwindcss/vite": "^4.1.16",
     "express": "^5.1.0",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "tailwindcss": "^4.1.16"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.7",
+    "postcss": "^8.4.20",
+    "autoprefixer": "^10.4.13"
   }
 }

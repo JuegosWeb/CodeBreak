@@ -1,0 +1,19 @@
+﻿{
+  "name": "codebreak",
+  "version": "1.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "babel src -d lib",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.16",
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1",
+    "tailwindcss": "^4.1.16"
+  }
+}

@@ -1,0 +1,606 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeBreak - Multijugador</title>
+<link rel="icon" href="https://emojicdn.elk.sh/🧩" type="image/png" />
+<!-- Use compiled Tailwind CSS in production. Build with: npx tailwindcss -i ./src/input.css -o ./public/styles.css --minify --content "./public/index.html" "./src/**/*.{js,jsx}" -->
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  .hidden-text {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.8);
+    opacity: 0;
+    transition: opacity 1.3s ease;
+    pointer-events: none;
+    z-index: 20;
+    font-family: "Segoe UI", sans-serif;
+  }
+  body:hover .hidden-text { opacity: 1; transition: opacity 0.8s ease-in; }
+  body:not(:hover) .hidden-text { opacity: 0; transition: opacity 2.5s ease-out; }
+  .fade { animation: fade 0.4s ease; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pulse-border {
+    0% { border-color: rgba(6, 182, 212, 0.5); }
+    50% { border-color: rgba(6, 182, 212, 1); }
+    100% { border-color: rgba(6, 182, 212, 0.5); }
+  }
+  .pulse-border { animation: pulse-border 1.5s infinite ease-in-out; }
+  .toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+  }
+  .toast {
+    background-color: #333;
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    animation: fade 0.3s ease-out;
+  }
+  .drawer-slide { animation: fadeInDrawer .22s ease; }
+  @keyframes fadeInDrawer { from { opacity: 0; transform: translateX(40px);} to { opacity: 1; transform: translateX(0);} }
+</style>
+</head>
+<body class="bg-gradient-to-b from-gray-900 to-black text-white flex items-center justify-center min-h-screen overflow-hidden">
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+const socket = io();
+
+const Ficha = ({numero, color, oculta}) => {
+  const base = "w-9 h-12 sm:w-10 sm:h-14 md:w-11 md:h-15 lg:w-14 lg:h-20 flex items-center justify-center rounded-lg m-1 border text-base sm:text-lg lg:text-xl font-bold transition-all duration-300 fade"
+  if (oculta) return (
+    <div className={`${base} bg-gray-700 border-gray-600 text-gray-400 hover:scale-100`} style={{animationDelay: "0.15s"}}>
+      ?
+    </div>
+  );
+  return (
+    <div className={`${base} ${color==='blanco'?'bg-white text-black border-gray-400':'bg-black text-white border-gray-600'} hover:scale-105`}>
+      {numero}
+    </div>
+  );
+};
+
+const Mano = ({jugador, soyYo, esMiTurno}) => (
+  <div className={`p-1 sm:p-3 md:p-4 bg-gray-800/60 rounded-xl my-3 w-full fade ${esMiTurno ? 'border-2 border-teal-500 pulse-border' : ''}`}>
+    <h3 className="text-teal-300 font-semibold mb-1 text-base sm:text-lg">{jugador.name} {soyYo && '(Tú)'}</h3>
+    <div className="flex justify-center flex-wrap w-full overflow-x-auto">{jugador.hand.map((t,i)=> <Ficha key={i} numero={t.numero} color={t.color} oculta={!soyYo}/>)}</div>
+  </div>
+);
+
+const Toast = ({ message, type, onClose }) => {
+  const bgColor = type === 'error' ? 'bg-red-700' : 'bg-green-700';
+  return <div className={`toast ${bgColor}`} onClick={onClose}>{message}</div>;
+};
+
+const ToastContainer = ({ toasts, removeToast }) => (
+  <div className="toast-container">
+    {toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}
+  </div>
+);
+
+const Modal = ({show, title, body, onClose, modalType, onSubmitGuess}) => {
+  if (!show) return null;
+  const guessInputRef = useRef(null);
+
+  const handleSubmit = () => {
+    if (modalType === 'guess' && guessInputRef.current) {
+      onSubmitGuess(guessInputRef.current.value);
+    }
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50 fade">
+      <div className="bg-gray-800 p-4 sm:p-6 rounded-xl w-[98vw] sm:w-[26rem] border border-gray-600">
+        <h2 className="text-lg font-bold text-teal-400 mb-2">{title}</h2>
+        <p className="whitespace-pre-line mb-4">{body}</p>
+        {modalType === 'guess' && (
+          <div>
+            <input ref={guessInputRef} type="text" maxLength="5"
+              className="w-full p-2 text-black text-center rounded mb-2 bg-gray-200"
+              placeholder="Ej. 12345"/>
+            <button onClick={handleSubmit} className="w-full py-2 bg-rose-600 hover:bg-rose-500 rounded font-bold">Enviar</button>
+          </div>
+        )}
+        <button onClick={onClose} className="mt-3 w-full py-2 rounded bg-gray-700 hover:bg-gray-600 font-bold">Cerrar</button>
+      </div>
+    </div>
+  );
+};
+
+const DrawerPreguntas = ({visible, onClose, preguntasVisibles, alternarVisibilidad}) => {
+  if (!visible) return null;
+  return (
+    <div className="fixed top-0 right-0 h-full w-11/12 sm:w-[430px] z-50 bg-gray-800/95 shadow-2xl flex flex-col drawer-slide"
+         style={{maxWidth: "98vw"}}>
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-700">
+        <h3 className="text-teal-400 font-semibold text-lg">Preguntas activas</h3>
+        <button onClick={onClose} className="text-white text-2xl px-2 py-0 leading-none rounded hover:bg-gray-700">&times;</button>
+      </div>
+      <div className="p-4 overflow-y-auto flex-1">
+        {preguntasVisibles.length === 0 && (
+          <div className="text-gray-400 italic text-sm text-center mt-4">No hay preguntas activas.</div>
+        )}
+        {preguntasVisibles.map(p=>(
+          <div key={p.id} className="bg-gray-700/70 rounded p-2 mb-3">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-semibold whitespace-normal break-words w-[220px] text-teal-200">{p.title}</span>
+              <button className="text-xs bg-emerald-600 px-2 py-1 rounded ml-3 hover:bg-emerald-500" onClick={()=>alternarVisibilidad(p.id)}>
+                {p.abierta?"Minimizar":"Abrir"}
+              </button>
+            </div>
+            {p.abierta && <p className="text-sm whitespace-pre-line break-words">{p.body}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const BotonDrawerPreguntas = ({onClick, hayPreguntas}) => (
+  <button
+    className="fixed top-8 right-3 z-40 bg-emerald-600 text-white rounded-full shadow-lg w-14 h-14 flex flex-col items-center justify-center hover:bg-emerald-700 transition-colors"
+    onClick={onClick}
+    style={{fontWeight: 'bold', fontSize:'24px'}}
+    aria-label="Ver preguntas activas"
+  >
+    <span role="img" aria-label="preguntas">?</span>
+    <span className="block text-xs">{hayPreguntas > 0 ? hayPreguntas : ''}</span>
+  </button>
+);
+
+/* Notas privadas: botón y drawer (izquierda) */
+const BotonDrawerNotas = ({onClick, notasCount}) => (
+ <button
+ className="fixed top-4 left-4 z-[1100] bg-sky-600 text-white rounded-full shadow-lg w-14 h-14 flex flex-col items-center justify-center hover:bg-sky-700 transition-colors"
+ onClick={onClick}
+ style={{fontWeight: 'bold', fontSize:'20px'}}
+ aria-label="Abrir bloc de notas"
+ title="Bloc de notas (privado)"
+ >
+ <span role="img" aria-label="notas">🗒️</span>
+ <span className="block text-xs">{notasCount >0 ? notasCount : ''}</span>
+ </button>
+);
+
+const DrawerNotas = ({visible, onClose, jugadores, socketId, sala, notas, setNotaParaJugador, selectedJugadorId, setSelectedJugadorId, lastSavedMap}) => {
+ if (!visible) return null;
+ return (
+ <div className="fixed top-0 left-0 h-full w-11/12 sm:w-[360px] z-[1100] bg-gray-900/95 shadow-2xl flex flex-col drawer-slide" style={{maxWidth: "98vw"}}>
+ <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-700">
+ <h3 className="text-sky-300 font-semibold text-lg">Bloc de notas privado</h3>
+ <div className="flex items-center gap-2">
+ <span className="text-xs text-gray-400">Sala: {sala || '-'}</span>
+ <button onClick={onClose} className="text-white text-2xl px-2 py-0 leading-none rounded hover:bg-gray-800" aria-label="Cerrar">&times;</button>
+ </div>
+ </div>
+
+ <div className="p-4 overflow-y-auto flex-1">
+ {(!jugadores || jugadores.length ===0) && (
+ <div className="text-gray-400 italic text-sm text-center mt-4">No hay jugadores.</div>
+ )}
+ <div className="space-y-3">
+ {(jugadores||[]).map(j => (
+ <div key={j.id} className={`bg-gray-800/60 rounded p-2 ${selectedJugadorId === j.id ? 'ring-2 ring-sky-400' : ''}`}>
+ <div className="flex items-center justify-between mb-2">
+ <div className="flex items-center gap-2">
+ <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-sm font-semibold text-teal-300">{(j.name||'?').charAt(0)}</div>
+ <div className="text-sm font-semibold">{j.name} {j.id === socketId && <span className="text-xs text-gray-400">(Tú)</span>}</div>
+ </div>
+ <div className="flex items-center gap-2">
+ <button className="text-xs bg-sky-600 px-2 py-1 rounded hover:bg-sky-500" onClick={()=>setSelectedJugadorId(j.id)}>Abrir</button>
+ </div>
+ </div>
+
+ {selectedJugadorId === j.id && (
+ <div>
+ <textarea
+ value={notas[j.id] || ''}
+ onChange={(e)=>setNotaParaJugador(j.id, e.target.value)}
+ className="w-full min-h-[120px] p-2 text-black rounded bg-gray-100 mb-2 resize-y"
+ placeholder={`Notas privadas sobre ${j.name}...`}
+ />
+ <div className="flex items-center justify-between text-xs text-gray-400">
+ <span>Notas guardadas localmente (privado)</span>
+ <span>{ lastSavedMap[j.id] ? `Guardado ${new Date(lastSavedMap[j.id]).toLocaleTimeString()}` : 'Sin guardar aún' }</span>
+ </div>
+ </div>
+ )}
+ </div>
+ ))}
+ </div>
+ </div>
+ <div className="p-3 border-t border-gray-800 text-xs text-gray-400">Nota: las notas están guardadas solo en este navegador y por sala/usuario. No se comparten con otros jugadores.</div>
+ </div>
+ );
+};
+
+const ShareButton = ({sala, onCopyLink}) => (
+ <button
+ onClick={onCopyLink}
+ className="w-full mt-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white font-semibold text-center"
+ title="Compartir enlace de la sala"
+ >
+ Compartir sala — {sala}
+ </button>
+);
+
+const App = () => {
+  const [nombre, setNombre] = useState('');
+  const [sala, setSala] = useState('');
+  const [jugadores, setJugadores] = useState([]);
+  const [estado, setEstado] = useState(null);
+  const [enPartida, setEnPartida] = useState(false);
+  const [socketId, setSocketId] = useState(null);
+  const [preguntasVisibles, setPreguntasVisibles] = useState([]);
+  const [esperandoCierre, setEsperandoCierre] = useState(false);
+  const [modal, setModal] = useState({show:false, title:'', body:'', modalType:null});
+  const [toasts, setToasts] = useState([]);
+  const [showDrawerPreguntas, setShowDrawerPreguntas] = useState(false);
+  const [esCreadorSala, setEsCreadorSala] = useState(false);
+  const [showDrawerNotas, setShowDrawerNotas] = useState(false);
+  const [selectedJugadorId, setSelectedJugadorId] = useState(null);
+  const [notas, setNotas] = useState({});
+  const [lastSavedMap, setLastSavedMap] = useState({});
+  const saveTimeoutRef = useRef(null);
+  const [salaCreada, setSalaCreada] = useState(false);
+
+  const localStorageKey = () => `CodeBreak_notes_${sala || 'global'}_${socketId || 'anon'}`;
+
+  const loadNotasFromStorage = () => {
+    try {
+      const raw = localStorage.getItem(localStorageKey());
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          setNotas(parsed.notes || {});
+          setLastSavedMap(parsed.lastSavedMap || {});
+        }
+      }
+    } catch (e) { console.warn('Error cargando notas:', e); }
+  };
+
+  useEffect(()=>{
+    loadNotasFromStorage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sala, socketId]);
+
+  const persistNotasToStorage = (nextNotas, nextLastSavedMap) => {
+    try {
+      localStorage.setItem(localStorageKey(), JSON.stringify({ notes: nextNotas, lastSavedMap: nextLastSavedMap }));
+    } catch(e) { console.warn('Error guardando notas:', e); }
+  };
+
+  const setNotaParaJugador = (playerId, text) => {
+    setNotas(prev => {
+      const next = { ...prev, [playerId]: text };
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(()=>{
+        setLastSavedMap(prevMap => {
+          const nextMap = { ...prevMap, [playerId]: Date.now() };
+          persistNotasToStorage(next, nextMap);
+          return nextMap;
+        });
+      },600);
+      return next;
+    });
+  };
+
+  const showToast = (message, type = 'info', duration = 3000) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => removeToast(id), duration);
+  };
+  const removeToast = (id) => { setToasts(prev => prev.filter(toast => toast.id !== id)); };
+
+  // refs to avoid stale closures inside socket event handlers
+  const enPartidaRef = useRef(enPartida);
+  const socketIdRef = useRef(socketId);
+  useEffect(() => { enPartidaRef.current = enPartida; }, [enPartida]);
+  useEffect(() => { socketIdRef.current = socketId; }, [socketId]);
+
+  useEffect(() => {
+    socket.on('connect', () => { setSocketId(socket.id); socketIdRef.current = socket.id; });
+
+    socket.on('updateRoom', players => {
+      setJugadores(players);
+      // the creator is the first in players array
+      const amInRoom = (players || []).some(p => p.id === socket.id);
+      if (players && players[0] && players[0].id === socket.id) {
+        setEsCreadorSala(true);
+        setSalaCreada(true);
+      } else {
+        setEsCreadorSala(false);
+        // if I'm in the room but not the creator, ensure salaCreada is false
+        if (amInRoom) setSalaCreada(false);
+      }
+      if (enPartidaRef.current && players.length <2) {
+        showToast("La partida terminó porque no hay suficientes jugadores.", "error");
+        setEnPartida(false); setEstado(null);
+      }
+    });
+
+    socket.on('gameStarted', gs => {
+      setEstado(gs);
+      setEnPartida(true);
+      setModal({show:false});
+      showToast("La partida ha comenzado!", "info");
+    });
+
+    socket.on('questionResult', r => {
+      const id = Date.now();
+      setPreguntasVisibles(prev=>[...prev, {id, title:r.title, body:r.body, abierta:true, autor:r.autor}]);
+      setModal({show:true, title:r.title, body:r.body, modalType:null});
+      if (r.autor === socketIdRef.current) setEsperandoCierre(true);
+      setEstado(p => ({...p, usedQuestions:r.usedQuestions}));
+    });
+
+    socket.on('turnChanged', i => {
+      setEstado(p => ({...p, currentPlayerTurn:i}));
+      setEsperandoCierre(false);
+    });
+
+    socket.on('gameOver', ({winner, players}) => {
+      setModal({show:true, title:`${winner.name} ganó!`, body:players.map(p=>`${p.name}: ${p.code}`).join('\n'), modalType:null});
+      setEnPartida(false); setEsperandoCierre(false); setPreguntasVisibles([]);
+    });
+
+    socket.on('roomFull', () => showToast("La sala está llena, no puedes unirte.", "error"));
+
+    socket.on('playerLeft', ({ playerName, newTurn }) => {
+      showToast(`${playerName} ha abandonado la partida.`, "error");
+      if (newTurn !== undefined) setEstado(prev => ({ ...prev, currentPlayerTurn: newTurn }));
+    });
+
+    return () => { socket.off(); };
+  }, []);
+
+  // Inicializar entradas de notas al cambiar jugadores
+  useEffect(()=>{
+    if (!jugadores || jugadores.length ===0) return;
+    setNotas(prev => {
+      let changed = false;
+      const next = { ...prev };
+      jugadores.forEach(j => {
+        if (!next[j.id]) { next[j.id] = ''; changed = true; }
+      });
+      return changed ? next : prev;
+    });
+  }, [jugadores]);
+
+  // Abrir el bloc de notas automáticamente cuando empieza la partida
+  useEffect(() => {
+    if (enPartida) {
+      setShowDrawerNotas(true);
+      // seleccionar el primer jugador que no sea yo para mostrar sus notas
+      const firstOther = (jugadores || []).find(j => j.id !== socketId);
+      if (firstOther) setSelectedJugadorId(firstOther.id);
+    } else {
+      setShowDrawerNotas(false);
+      setSelectedJugadorId(null);
+    }
+  }, [enPartida, jugadores, socketId]);
+
+  // contar jugadores distintos de uno mismo para mostrar en el botón de notas
+  const notasCount = jugadores.filter(j => j.id !== socketId).length;
+
+  const crearSala = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    try {
+      if (!nombre) { showToast("Introduce tu nombre.", "error"); return; }
+      // si el usuario ya escribió un código lo usamos, si no generamos uno
+      const roomId = sala && sala.trim() ? sala.trim() : Math.random().toString(36).slice(2,8).toUpperCase();
+      setSala(roomId);
+      console.log('Creando sala', roomId, 'usuario', nombre);
+      socket.emit('joinRoom', { playerName: nombre, roomId });
+      // wait for server updateRoom to set salaCreada/esCreadorSala
+      showToast(`Sala creada: ${roomId}. Esperando jugadores...`, 'info',2500);
+    } catch(err) {
+      console.error('Error crearSala', err);
+      showToast('Error al crear sala', 'error');
+    }
+  };
+
+  // Mantener función de unirse para permitir que otros se unan introduciendo código
+  const unirse = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!nombre || !sala) { showToast("Introduce tu nombre y el código de sala.", "error"); return; }
+    console.log('Uniéndose a sala', sala, 'usuario', nombre);
+    socket.emit('joinRoom', {playerName:nombre, roomId:sala});
+  };
+
+  // Cancelar la sala creada localmente (no implementado en servidor: sólo limpia UI)
+  const cancelarSala = () => {
+    // notify server to leave room so creator isn't left in server room
+    if (sala) socket.emit('leaveRoom', { roomId: sala });
+    setSalaCreada(false);
+    setSala('');
+    setJugadores([]);
+    setEsCreadorSala(false);
+    showToast('Creación de sala cancelada.', 'info');
+  };
+
+  const copyShareLink = async () => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}?sala=${encodeURIComponent(sala)}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      showToast("?Enlace copiado al portapapeles!", "info");
+    } catch (err) {
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showToast("?Enlace copiado al portapapeles!", "info");
+    }
+  };
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const salaParam = urlParams.get('sala');
+    if (salaParam) {   
+      setSala(salaParam);
+    }
+  }, []);
+
+  const comenzar = () => socket.emit('startGame', {roomId:sala});
+  const esMiTurno = () => {
+if (!estado || !estado.players || typeof estado.currentPlayerTurn !== 'number') return false;
+const current = estado.players[estado.currentPlayerTurn];
+if (!current) return false;
+return socketId === current.id;
+};
+  const lanzarPregunta = i => {
+    if (!esMiTurno() || esperandoCierre) return;
+    socket.emit('selectQuestion', {roomId:sala, questionIndex:i});
+  };
+  const pasarTurno = () => { if (!esMiTurno()) return; socket.emit('closeQuestion', {roomId:sala}); };
+  const handleSubmitGuess = (guess) => {
+    if (guess && guess.length === 5 && /^\d+$/.test(guess)) {
+      socket.emit("guessCode",{roomId:sala,guess:guess});
+    } else { showToast("El código debe ser de 5 dígitos numéricos.", "error"); }
+  };
+  const abrirAdivinar = () => {
+    if (!esMiTurno()) return;
+    setModal({
+      show:true, title:"Adivinar código",
+      body:"Introduce tu intento de código (5 dígitos numúricos):",
+      modalType:"guess", onSubmitGuess: handleSubmitGuess
+    });
+  };
+  const alternarVisibilidad = id => setPreguntasVisibles(prev=>prev.map(p=>p.id===id?{...p,abierta:!p.abierta}:p));
+  const totalPlayersInLobby = jugadores.length;
+  const maxPlayers = 4;
+
+  return (
+    <div className="flex flex-col items-center justify-center w-full max-w-[98vw] md:max-w-6xl mx-auto p-1 sm:p-2 md:p-4 text-center">
+      <div className="flex items-center justify-center gap-3 w-full">
+        <h1 className="text-2xl sm:text-3xl font-bold text-teal-400 mb-2 sm:mb-5">Descifra el Código</h1>
+      </div>
+
+      {/* Botón y Drawer de Notas (privadas) */}
+      {enPartida && (
+      <>
+      <BotonDrawerNotas onClick={()=>setShowDrawerNotas(v=>!v)} notasCount={notasCount} />
+      <DrawerNotas
+        visible={showDrawerNotas}
+        onClose={()=>setShowDrawerNotas(false)}
+        jugadores={jugadores}
+        socketId={socketId}
+        sala={sala}
+        notas={notas}
+        setNotaParaJugador={setNotaParaJugador}
+        selectedJugadorId={selectedJugadorId}
+        setSelectedJugadorId={setSelectedJugadorId}
+        lastSavedMap={lastSavedMap}
+      />
+      </>
+      )}
+
+      {(preguntasVisibles.length >0) && (
+        <>
+          <BotonDrawerPreguntas onClick={()=>setShowDrawerPreguntas(true)} hayPreguntas={preguntasVisibles.length}/>
+          <DrawerPreguntas
+            visible={showDrawerPreguntas}
+            onClose={() => setShowDrawerPreguntas(false)}
+            preguntasVisibles={preguntasVisibles}
+            alternarVisibilidad={alternarVisibilidad}
+          />
+        </>
+      )}
+      {!enPartida ? (
+        <div className="bg-gray-800 p-4 sm:p-8 rounded-xl max-w-md w-full">
+          <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white" value={nombre} onChange={e=>setNombre(e.target.value)}/>
+          <input placeholder="Código de sala (opcional)" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded text-white" value={sala} onChange={e=>setSala(e.target.value)}/>
+          { !salaCreada ? (
+          <div className="flex gap-2">
+          <button type="button" onClick={crearSala} className="flex-1 bg-teal-600 hover:bg-teal-500 py-2 rounded">Crear sala</button>
+          <button type="button" onClick={unirse} className="flex-1 bg-gray-600 hover:bg-gray-500 py-2 rounded">Unirse</button>
+          </div>
+          ) : (
+          <div className="text-center">
+          <div className="mt-2 text-sm text-yellow-300">Esperando a que otros jugadores se unan...</div>
+          </div>
+          )}
+
+          {esCreadorSala && sala && (
+            <ShareButton sala={sala} onCopyLink={copyShareLink} />
+          )}
+
+          {totalPlayersInLobby >0 && (
+            <div className="mt-2 sm:mt-3 text-gray-300">
+              <p className="font-semibold text-teal-300 mb-1">Jugadores en la sala ({totalPlayersInLobby}/{maxPlayers}):</p>
+              {jugadores.map(j=><p key={j.id} className="text-sm">{j.name}</p>)}
+            </div>
+          )}
+
+          {esCreadorSala && totalPlayersInLobby >=2 && totalPlayersInLobby <= maxPlayers && (
+            <button onClick={comenzar} className="w-full mt-3 sm:mt-4 bg-green-600 hover:bg-green-500 py-2 rounded">Empezar partida</button>
+          )}
+        </div>
+      ) : (
+        estado && (
+          <div className="fade w-full max-w-5xl text-center">
+            <h2 className="text-base sm:text-lg mb-1 sm:mb-3">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
+            <div className="flex flex-col md:flex-row justify-center items-center w-full flex-wrap gap-y-2 gap-x-4">
+              {(estado.players||[]).map((p)=>
+                <Mano key={p.id || p.name} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()}/>
+              )}
+            </div>
+            <div className="relative h-[130px] sm:h-[220px] md:h-[300px] flex justify-center items-center mt-2 sm:mt-5">
+              {estado.questions && estado.questions.map((q,i)=>{
+                if(estado.usedQuestions[i])return null;
+                const ang = (i - estado.questions.length / 2) * 7;
+                return (
+                  <div key={i} onClick={()=>
+                    lanzarPregunta(i)}
+                    className={`absolute left-1/2 top-1/2 w-20 h-14 sm:w-32 sm:h-20 md:w-48 md:h-28 lg:w-56 lg:h-32 flex items-center justify-center text-black font-bold rounded-xl shadow-md border
+                      ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105 transition-transform':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
+                    style={{
+                      transform: `translate(-50%, -50%) rotate(${ang}deg)`,
+                      zIndex: estado.questions.length - i
+                    }}>
+                    Pregunta {i + 1}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex flex-col items-center w-full max-w-lg mx-auto">
+              <button disabled={!esMiTurno()} onClick={abrirAdivinar}
+                className={`mt-5 w-full py-2 rounded font-bold text-white text-base ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
+                Adivinar código
+              </button>
+              <button disabled={!esMiTurno()} onClick={pasarTurno}
+                className={`mt-2 w-full py-2 rounded font-bold text-white text-base ${esMiTurno()?'bg-yellow-600 hover:bg-yellow-500':'bg-gray-700 cursor-not-allowed'}`}>
+                Pasar turno
+              </button>
+            </div>
+          </div>
+      ))}
+      <Modal show={modal.show} title={modal.title} body={modal.body} onClose={()=>setModal(m=>({...m,show:false}))}
+            modalType={modal.modalType} onSubmitGuess={modal.onSubmitGuess}/>
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <div className="hidden-text">© 2025 Nahuel</div>
+    </div>
+  );
+};
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>
