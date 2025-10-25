@@ -11,8 +11,8 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
-  html { font-size: 14px; }
-  @media (max-width: 640px) { html { font-size: 12px; } }
+  html { font-size: 16px; }
+  @media (max-width: 640px) { html { font-size: 14px; } }
   
   .hidden-text {
     position: fixed; bottom: 0.5rem; left: 50%; transform: translateX(-50%);
@@ -60,7 +60,7 @@
   }
 </style>
 </head>
-<body class="bg-gradient-to-b from-gray-900 to-black text-white flex items-center justify-center min-h-screen overflow-auto">
+<body class="bg-gradient-to-b from-gray-900 to-black text-white flex items-center justify-center min-h-screen">
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
@@ -70,24 +70,24 @@ const socket = io();
 const LABELS = ['A', 'B', 'C', 'D', 'E'];
 
 const Ficha = ({numero, color, oculta, index}) => {
-  const base = "w-7 h-10 sm:w-8 sm:h-12 md:w-10 md:h-14 flex flex-col items-center justify-center rounded-lg m-0.5 sm:m-1 border text-sm sm:text-base font-bold transition-all duration-300 fade relative"
+  const base = "w-10 h-14 sm:w-12 sm:h-16 md:w-14 md:h-20 flex flex-col items-center justify-center rounded-lg m-1 border text-base sm:text-lg md:text-xl font-bold transition-all duration-300 fade relative"
   if (oculta) return (
     <div className={`${base} bg-gray-700 border-gray-600 text-gray-400`} style={{animationDelay: "0.15s"}}>
-      <span className="text-xs absolute top-0.5 left-1">?</span>
+      <span className="text-xs absolute top-1 left-1.5">?</span>
       <span>?</span>
     </div>
   );
   return (
     <div className={`${base} ${color==='blanco'?'bg-white text-black border-gray-400':'bg-black text-white border-gray-600'} hover:scale-105`}>
-      <span className="text-xs absolute top-0.5 left-1 opacity-60">{LABELS[index]}</span>
+      <span className="text-xs absolute top-1 left-1.5 opacity-60">{LABELS[index]}</span>
       <span>{numero}</span>
     </div>
   );
 };
 
 const Mano = ({jugador, soyYo, esMiTurno, esCodigoOculto}) => (
-  <div className={`p-1 sm:p-2 md:p-3 bg-gray-800/60 rounded-xl my-1 sm:my-2 w-full fade ${esMiTurno ? 'border-2 border-teal-500 pulse-border' : ''} ${esCodigoOculto ? 'border border-yellow-500/50' : ''}`}>
-    <h3 className="text-teal-300 font-semibold mb-1 text-sm sm:text-base">
+  <div className={`p-2 sm:p-3 md:p-4 bg-gray-800/60 rounded-xl my-2 w-full fade ${esMiTurno ? 'border-2 border-teal-500 pulse-border' : ''} ${esCodigoOculto ? 'border border-yellow-500/50' : ''}`}>
+    <h3 className="text-teal-300 font-semibold mb-2 text-base sm:text-lg">
       {jugador.name} {soyYo && '(Tú)'} {esCodigoOculto && '🔒'}
     </h3>
     <div className="flex justify-center flex-wrap w-full">
@@ -120,18 +120,18 @@ const Modal = ({show, title, body, onClose, modalType, onSubmitGuess}) => {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50 fade px-2">
-      <div className="bg-gray-800 p-3 sm:p-5 rounded-xl w-full max-w-sm border border-gray-600">
-        <h2 className="text-base sm:text-lg font-bold text-teal-400 mb-2">{title}</h2>
-        <p className="whitespace-pre-line mb-3 text-sm">{body}</p>
+      <div className="bg-gray-800 p-4 sm:p-6 rounded-xl w-full max-w-md border border-gray-600">
+        <h2 className="text-lg sm:text-xl font-bold text-teal-400 mb-3">{title}</h2>
+        <p className="whitespace-pre-line mb-4 text-sm sm:text-base">{body}</p>
         {modalType === 'guess' && (
           <div>
             <input ref={guessInputRef} type="text" maxLength="5"
-              className="w-full p-2 text-black text-center rounded mb-2 bg-gray-200 text-sm"
+              className="w-full p-2 text-black text-center rounded mb-2 bg-gray-200 text-base"
               placeholder="Ej. 12345"/>
-            <button onClick={handleSubmit} className="w-full py-2 bg-rose-600 hover:bg-rose-500 rounded font-bold text-sm">Enviar</button>
+            <button onClick={handleSubmit} className="w-full py-2 bg-rose-600 hover:bg-rose-500 rounded font-bold text-base">Enviar</button>
           </div>
         )}
-        <button onClick={onClose} className="mt-2 w-full py-2 rounded bg-gray-700 hover:bg-gray-600 font-bold text-sm">Cerrar</button>
+        <button onClick={onClose} className="mt-3 w-full py-2 rounded bg-gray-700 hover:bg-gray-600 font-bold text-base">Cerrar</button>
       </div>
     </div>
   );
@@ -141,11 +141,11 @@ const NotesDrawer = ({visible, onClose, notas, toggleNota}) => {
   if (!visible) return null;
   return (
     <div className="fixed top-0 right-0 h-full w-11/12 sm:w-96 z-50 bg-gray-800/95 shadow-2xl flex flex-col drawer-slide overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 bg-gray-900 border-b border-gray-700">
-        <h3 className="text-teal-400 font-semibold text-base">Notas Privadas</h3>
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-700">
+        <h3 className="text-teal-400 font-semibold text-lg">Notas Privadas</h3>
         <button onClick={onClose} className="text-white text-2xl px-2 leading-none rounded hover:bg-gray-700">&times;</button>
       </div>
-      <div className="p-3 overflow-y-auto flex-1">
+      <div className="p-4 overflow-y-auto flex-1">
         {notas.length === 0 && (
           <div className="text-gray-400 italic text-sm text-center mt-4">No hay notas todavía.</div>
         )}
@@ -153,7 +153,7 @@ const NotesDrawer = ({visible, onClose, notas, toggleNota}) => {
           <div key={n.id} className="note-card">
             <div className="note-title">
               <span className="flex-1">{n.title}</span>
-              <button className="text-xs bg-emerald-600 px-2 py-0.5 rounded hover:bg-emerald-500 ml-2" onClick={()=>toggleNota(n.id)}>
+              <button className="text-xs bg-emerald-600 px-2 py-1 rounded hover:bg-emerald-500 ml-2" onClick={()=>toggleNota(n.id)}>
                 {n.abierta ? "Ocultar" : "Mostrar"}
               </button>
             </div>
@@ -167,9 +167,9 @@ const NotesDrawer = ({visible, onClose, notas, toggleNota}) => {
 
 const NotesButton = ({onClick, hayNotas}) => (
   <button
-    className="fixed top-2 right-2 z-40 bg-blue-600 text-white rounded-full shadow-lg w-12 h-12 sm:w-14 sm:h-14 flex flex-col items-center justify-center hover:bg-blue-700 transition-colors"
+    className="fixed top-3 right-3 z-40 bg-blue-600 text-white rounded-full shadow-lg w-14 h-14 flex flex-col items-center justify-center hover:bg-blue-700 transition-colors"
     onClick={onClick}
-    style={{fontWeight: 'bold', fontSize:'18px'}}
+    style={{fontWeight: 'bold', fontSize:'20px'}}
     aria-label="Ver notas privadas"
   >
     <span>📝</span>
@@ -180,13 +180,13 @@ const NotesButton = ({onClick, hayNotas}) => (
 const ShareButton = ({sala, onCopyLink}) => (
   <button
     onClick={onCopyLink}
-    className="flex items-center justify-center space-x-2 w-full mt-2 py-2 bg-blue-600 hover:bg-blue-500 rounded font-bold text-white transition-colors text-sm"
+    className="flex items-center justify-center space-x-2 w-full mt-3 py-2 bg-blue-600 hover:bg-blue-500 rounded font-bold text-white transition-colors text-sm"
     title="Compartir enlace de la sala"
   >
-    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
       <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/>
     </svg>
-    <span className="text-sm">Compartir sala</span>
+    <span>Compartir sala</span>
   </button>
 );
 
@@ -230,10 +230,8 @@ const App = () => {
     });
     socket.on('questionResult', r => {
       const id = Date.now();
-      // Guardar en notas privadas
       setNotasPrivadas(prev=>[...prev, {id, title:r.title, body:r.body, abierta:true}]);
       
-      // Solo mostrar modal si eres el autor de la pregunta
       if (r.autor === socket.id) {
         setModal({show:true, title:r.title, body:r.body, modalType:null});
         setEsperandoCierre(true);
@@ -313,7 +311,6 @@ const App = () => {
   const totalPlayersInLobby = jugadores.length;
   const maxPlayers = 4;
 
-  // Construir lista de manos para mostrar (jugadores + código oculto si existe)
   const manosAMostrar = estado ? [...estado.players] : [];
   if (estado && estado.mode === "missing" && estado.missing) {
     manosAMostrar.push({
@@ -325,8 +322,8 @@ const App = () => {
   }
 
   return (
-    <div className="flex flex-col items-center justify-start w-full max-w-7xl mx-auto p-2 sm:p-3 text-center min-h-screen">
-      <h1 className="text-xl sm:text-2xl font-bold text-teal-400 mb-2 sm:mb-3">Descifra el Código</h1>
+    <div className="flex flex-col items-center justify-center w-full max-w-7xl mx-auto p-3 sm:p-4 text-center min-h-screen">
+      <h1 className="text-2xl sm:text-3xl font-bold text-teal-400 mb-3 sm:mb-4">Descifra el Código</h1>
       
       {enPartida && notasPrivadas.length > 0 && (
         <>
@@ -341,44 +338,44 @@ const App = () => {
       )}
       
       {!enPartida ? (
-        <div className="bg-gray-800 p-3 sm:p-6 rounded-xl max-w-md w-full">
-          <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white text-sm" value={nombre} onChange={e=>setNombre(e.target.value)}/>
-          <input placeholder="Código de sala" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white text-sm" value={sala} onChange={e=>setSala(e.target.value)}/>
-          <button onClick={unirse} className="w-full bg-teal-600 hover:bg-teal-500 py-2 rounded text-sm font-semibold">Unirse</button>
+        <div className="bg-gray-800 p-4 sm:p-8 rounded-xl max-w-md w-full">
+          <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white" value={nombre} onChange={e=>setNombre(e.target.value)}/>
+          <input placeholder="Código de sala" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded text-white" value={sala} onChange={e=>setSala(e.target.value)}/>
+          <button onClick={unirse} className="w-full bg-teal-600 hover:bg-teal-500 py-2 rounded font-semibold">Unirse</button>
           
           {esCreadorSala && totalPlayersInLobby >= 1 && sala && (
             <ShareButton sala={sala} onCopyLink={copyShareLink} />
           )}
 
           {totalPlayersInLobby > 0 && (
-            <div className="mt-2 text-gray-300">
-              <p className="font-semibold text-teal-300 mb-1 text-sm">Jugadores en la sala ({totalPlayersInLobby}/{maxPlayers}):</p>
-              {jugadores.map(j=><p key={j.id} className="text-xs">{j.name}</p>)}
+            <div className="mt-3 text-gray-300">
+              <p className="font-semibold text-teal-300 mb-1">Jugadores en la sala ({totalPlayersInLobby}/{maxPlayers}):</p>
+              {jugadores.map(j=><p key={j.id} className="text-sm">{j.name}</p>)}
             </div>
           )}
           {totalPlayersInLobby >= 2 && totalPlayersInLobby <= maxPlayers && (
-            <button onClick={comenzar} className="w-full mt-2 bg-green-600 hover:bg-green-500 py-2 rounded text-sm font-semibold">Empezar partida</button>
+            <button onClick={comenzar} className="w-full mt-3 bg-green-600 hover:bg-green-500 py-2 rounded font-semibold">Empezar partida</button>
           )}
         </div>
       ) : (
         estado && (
           <div className="fade w-full text-center">
-            <h2 className="text-sm sm:text-base mb-1 sm:mb-2">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
+            <h2 className="text-base sm:text-lg mb-2 sm:mb-3">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full mb-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full mb-3">
               {manosAMostrar.map((p,i)=> {
                 const esCodigoOculto = p.id === 'hidden';
                 return <Mano key={p.id} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()} esCodigoOculto={esCodigoOculto}/>
               })}
             </div>
             
-            <div className="relative h-24 sm:h-32 md:h-40 flex justify-center items-center my-2">
+            <div className="relative h-32 sm:h-40 md:h-48 flex justify-center items-center my-3">
               {estado.questions && estado.questions.map((q,i)=>{
                 if(estado.usedQuestions[i])return null;
                 const ang = (i - estado.questions.length / 2) * 5;
                 return (
                   <div key={i} onClick={()=>lanzarPregunta(i)}
-                    className={`absolute left-1/2 top-1/2 w-16 h-10 sm:w-24 sm:h-14 md:w-32 md:h-18 flex items-center justify-center text-black font-bold rounded-lg shadow-md border text-xs sm:text-sm
+                    className={`absolute left-1/2 top-1/2 w-20 h-12 sm:w-28 sm:h-16 md:w-36 md:h-20 flex items-center justify-center text-black font-bold rounded-lg shadow-md border text-xs sm:text-sm md:text-base
                       ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105 transition-transform':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
                     style={{
                       transform: `translate(-50%, -50%) rotate(${ang}deg)`,
@@ -392,11 +389,11 @@ const App = () => {
             
             <div className="flex flex-col items-center w-full max-w-md mx-auto">
               <button disabled={!esMiTurno()} onClick={abrirAdivinar}
-                className={`mt-2 w-full py-2 rounded font-bold text-white text-sm ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
+                className={`mt-3 w-full py-2 rounded font-bold text-white ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
                 Adivinar código
               </button>
               <button disabled={!esMiTurno()} onClick={pasarTurno}
-                className={`mt-1 w-full py-2 rounded font-bold text-white text-sm ${esMiTurno()?'bg-yellow-600 hover:bg-yellow-500':'bg-gray-700 cursor-not-allowed'}`}>
+                className={`mt-2 w-full py-2 rounded font-bold text-white ${esMiTurno()?'bg-yellow-600 hover:bg-yellow-500':'bg-gray-700 cursor-not-allowed'}`}>
                 Pasar turno
               </button>
             </div>
