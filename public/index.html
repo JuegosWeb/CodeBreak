@@ -66,7 +66,6 @@
 const { useState, useEffect, useRef } = React;
 const socket = io();
 
-// Etiquetas de letras para las fichas
 const LABELS = ['A', 'B', 'C', 'D', 'E'];
 
 const Ficha = ({numero, color, oculta, index}) => {
@@ -230,7 +229,13 @@ const App = () => {
     });
     socket.on('questionResult', r => {
       const id = Date.now();
-      setNotasPrivadas(prev=>[...prev, {id, title:r.title, body:r.body, abierta:true}]);
+      console.log('🔔 Pregunta recibida:', r.title); // DEBUG
+      console.log('📝 Guardando en notas privadas...'); // DEBUG
+      setNotasPrivadas(prev => {
+        const nuevasNotas = [...prev, {id, title:r.title, body:r.body, abierta:true}];
+        console.log('📚 Total notas:', nuevasNotas.length); // DEBUG
+        return nuevasNotas;
+      });
       
       if (r.autor === socket.id) {
         setModal({show:true, title:r.title, body:r.body, modalType:null});
@@ -325,7 +330,8 @@ const App = () => {
     <div className="flex flex-col items-center justify-center w-full max-w-7xl mx-auto p-3 sm:p-4 text-center min-h-screen">
       <h1 className="text-2xl sm:text-3xl font-bold text-teal-400 mb-3 sm:mb-4">Descifra el Código</h1>
       
-      {enPartida && notasPrivadas.length > 0 && (
+      {/* CAMBIO: Botón siempre visible durante la partida */}
+      {enPartida && (
         <>
           <NotesButton onClick={()=>setShowNotesDrawer(true)} hayNotas={notasPrivadas.length}/>
           <NotesDrawer
@@ -403,7 +409,7 @@ const App = () => {
       <Modal show={modal.show} title={modal.title} body={modal.body} onClose={()=>setModal(m=>({...m,show:false}))}
             modalType={modal.modalType} onSubmitGuess={modal.onSubmitGuess}/>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <div className="hidden-text">© 2025 Nahuel</div>
+      <div className="hidden-text">© 2025 Nahuel Granollers</div>
     </div>
   );
 };
