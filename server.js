@@ -10,6 +10,9 @@ const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS_PER_ROOM = 4;
 
+// Mapeo de índices a letras
+const LABELS = ['A', 'B', 'C', 'D', 'E'];
+
 const BASE_QUESTIONS = [
   "¿Cuánto suman tus fichas?",
   "¿Cuántas fichas impares tienes?",
@@ -18,10 +21,10 @@ const BASE_QUESTIONS = [
   "¿Cuánto suman tus números negros?",
   "¿Qué fichas adyacentes tienen el mismo color?",
   "¿Qué fichas adyacentes tienen el mismo número?",
-  "¿Dónde están tus fichas con el número 5? (posiciones 1-5)",
+  "¿Dónde están tus fichas con el número 5?",
   "¿Cuántas fichas son blancas?",
   "¿Cuántas fichas son negras?",
-  "¿Cuánto suman tus fichas centrales? (2-3 jugadores: B y C / 4 jugadores: B y C)",
+  "¿Cuánto suman tus fichas centrales? (posiciones B y C)",
   "¿Cuánto suman tus 3 fichas de más a la derecha?",
   "¿Cuánto suman tus 3 fichas de más a la izquierda?",
   "¿Cuántas fichas pares tienes? (Se considera que el 0 es un número par)",
@@ -68,7 +71,7 @@ function getQuestionAnswer(q, hand) {
         const r = [];
         for (let i = 0; i < hand.length - 1; i++)
           if (hand[i].color === hand[i + 1].color)
-            r.push(`${i + 1} y ${i + 2}`);
+            r.push(`${LABELS[i]} y ${LABELS[i + 1]}`);
         return r.length ? r.join(', ') : "Ninguna";
       }
 
@@ -77,15 +80,15 @@ function getQuestionAnswer(q, hand) {
         const r = [];
         for (let i = 0; i < hand.length - 1; i++)
           if (hand[i].numero === hand[i + 1].numero)
-            r.push(`${i + 1} y ${i + 2}`);
+            r.push(`${LABELS[i]} y ${LABELS[i + 1]}`);
         return r.length ? r.join(', ') : "Ninguna";
       }
 
-    case BASE_QUESTIONS[7]: // ¿Dónde están tus fichas con el número 5? (posiciones 1-5)
+    case BASE_QUESTIONS[7]: // ¿Dónde están tus fichas con el número 5?
     case BASE_QUESTIONS[14]: // ¿Dónde están tus fichas con el n.º 5?
       {
         const p = [];
-        hand.forEach((t, i) => { if (t.numero === 5) p.push(i + 1); });
+        hand.forEach((t, i) => { if (t.numero === 5) p.push(LABELS[i]); });
         return p.length ? p.join(', ') : "No tienes";
       }
 
@@ -118,28 +121,28 @@ function getQuestionAnswer(q, hand) {
     case BASE_QUESTIONS[15]: // ¿Dónde están tus fichas con el n.º 6 o el n.º 7?
       {
         const p = [];
-        hand.forEach((t, i) => { if (t.numero === 6 || t.numero === 7) p.push(`${t.numero} en pos ${i + 1}`); });
+        hand.forEach((t, i) => { if (t.numero === 6 || t.numero === 7) p.push(`${t.numero} en ${LABELS[i]}`); });
         return p.length ? p.join(', ') : "No tienes";
       }
 
     case BASE_QUESTIONS[16]: // ¿Dónde están tus fichas con el n.º 0?
       {
         const p = [];
-        hand.forEach((t, i) => { if (t.numero === 0) p.push(i + 1); });
+        hand.forEach((t, i) => { if (t.numero === 0) p.push(LABELS[i]); });
         return p.length ? p.join(', ') : "No tienes";
       }
 
     case BASE_QUESTIONS[17]: // ¿Dónde están tus fichas con el n.º 3 o el n.º 4?
       {
         const p = [];
-        hand.forEach((t, i) => { if (t.numero === 3 || t.numero === 4) p.push(`${t.numero} en pos ${i + 1}`); });
+        hand.forEach((t, i) => { if (t.numero === 3 || t.numero === 4) p.push(`${t.numero} en ${LABELS[i]}`); });
         return p.length ? p.join(', ') : "No tienes";
       }
 
     case BASE_QUESTIONS[18]: // ¿Dónde están tus fichas con el n.º 8 o el n.º 9?
       {
         const p = [];
-        hand.forEach((t, i) => { if (t.numero === 8 || t.numero === 9) p.push(`${t.numero} en pos ${i + 1}`); });
+        hand.forEach((t, i) => { if (t.numero === 8 || t.numero === 9) p.push(`${t.numero} en ${LABELS[i]}`); });
         return p.length ? p.join(', ') : "No tienes";
       }
 
@@ -159,7 +162,7 @@ function getQuestionAnswer(q, hand) {
         const r = [];
         for (let i = 0; i < hand.length - 1; i++)
           if (Math.abs(hand[i].numero - hand[i+1].numero) === 1)
-            r.push(`${i + 1} y ${i + 2}`);
+            r.push(`${LABELS[i]} y ${LABELS[i + 1]}`);
         return r.length ? r.join(', ') : "Ninguna";
       }
 
@@ -233,7 +236,6 @@ io.on('connection', (socket) => {
 
     const mode = numPlayers === 2 ? "versus" : numPlayers === 3 ? "missing" : "chaos";
 
-    // determine starter: the player who requested startGame (usually room creator)
     const starterIndex = room.players.findIndex(p => p.id === socket.id);
     room.gameState = {
       mode,
@@ -243,7 +245,6 @@ io.on('connection', (socket) => {
       })),
       questions: [...BASE_QUESTIONS].sort(() => Math.random() -0.5),
       usedQuestions: new Array(BASE_QUESTIONS.length).fill(false),
-      // Start with the player who requested the start (usually the creator)
       currentPlayerTurn: (starterIndex >=0) ? starterIndex :0
     };
 
@@ -263,11 +264,24 @@ io.on('connection', (socket) => {
     g.usedQuestions[questionIndex] = true;
 
     const respuestas = [];
+    
+    // CAMBIO: Solo incluir código oculto en modo missing, nunca al jugador que pregunta
     if (g.mode === "missing") {
-      g.players.forEach(p => respuestas.push({ nombre: p.name, respuesta: getQuestionAnswer(pregunta, p.hand) }));
+      // Excluir al jugador que pregunta
+      g.players.forEach(p => {
+        if (p.id !== socket.id) {
+          respuestas.push({ nombre: p.name, respuesta: getQuestionAnswer(pregunta, p.hand) });
+        }
+      });
+      // Añadir código oculto
       respuestas.push({ nombre: "Código Oculto", respuesta: getQuestionAnswer(pregunta, g.missing.hand) });
     } else {
-      g.players.forEach(p => { if (p.id !== socket.id) respuestas.push({ nombre: p.name, respuesta: getQuestionAnswer(pregunta, p.hand) }); });
+      // Excluir al jugador que pregunta
+      g.players.forEach(p => {
+        if (p.id !== socket.id) {
+          respuestas.push({ nombre: p.name, respuesta: getQuestionAnswer(pregunta, p.hand) });
+        }
+      });
     }
 
     io.to(roomId).emit('questionResult', {
@@ -296,6 +310,7 @@ io.on('connection', (socket) => {
     if (!room || !room.gameState) return;
     const g = room.gameState;
     const jugador = g.players[g.currentPlayerTurn];
+    if (!jugador || jugador.id !== socket.id) return;
     if (!guess || guess.length !== 5 || !/^\d+$/.test(guess)) {
       socket.emit('error', 'El código debe tener 5 dígitos numéricos.');
       return;
