@@ -13,7 +13,6 @@
 <style>
   html { font-size: 16px; }
   @media (max-width: 640px) { html { font-size: 14px; } }
-  
   .hidden-text {
     position: fixed; bottom: 0.5rem; left: 50%; transform: translateX(-50%);
     font-size: 0.75rem; color: rgba(255,255,255,0.6); opacity: 0;
@@ -21,17 +20,14 @@
   }
   body:hover .hidden-text { opacity: 1; transition: opacity 0.8s ease-in; }
   body:not(:hover) .hidden-text { opacity: 0; transition: opacity 2.5s ease-out; }
-  
   .fade { animation: fade 0.4s ease; }
   @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-  
   @keyframes pulse-border {
     0% { border-color: rgba(6, 182, 212, 0.5); }
     50% { border-color: rgba(6, 182, 212, 1); }
     100% { border-color: rgba(6, 182, 212, 0.5); }
   }
   .pulse-border { animation: pulse-border 1.5s infinite ease-in-out; }
-  
   .toast-container { position: fixed; top: 0.5rem; right: 0.5rem; z-index: 1000; }
   .toast {
     background-color: #333; color: white; padding: 0.5rem 1rem;
@@ -39,15 +35,8 @@
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); animation: fade 0.3s ease-out;
     font-size: 0.875rem;
   }
-  
-  .drawer-slide { animation: fadeInDrawer .22s ease; }
-  @keyframes fadeInDrawer { from { opacity: 0; transform: translateX(40px);} to { opacity: 1; transform: translateX(0);} }
-  
   .slideIn { animation: slideInFromTop 0.3s ease-out; }
-  @keyframes slideInFromTop { 
-    from { opacity: 0; transform: translateY(-20px); } 
-    to { opacity: 1; transform: translateY(0); } 
-  }
+  @keyframes slideInFromTop { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body class="bg-gradient-to-b from-gray-900 to-black text-white">
@@ -59,15 +48,13 @@ const socket = io();
 const LABELS = ['A', 'B', 'C', 'D', 'E'];
 
 const Ficha = ({numero, color, oculta, index}) => {
-  const base = "w-10 h-14 sm:w-12 sm:h-16 md:w-14 md:h-20 flex flex-col items-center justify-center rounded-lg m-1 border text-base sm:text-lg md:text-xl font-bold transition-all duration-300 fade relative"
-  
+  const base = "w-9 h-12 sm:w-10 sm:h-14 md:w-12 md:h-16 flex flex-col items-center justify-center rounded-lg m-0.5 sm:m-1 border text-sm sm:text-base md:text-lg font-bold transition-all duration-300 fade relative"
   if (oculta) return (
     <div className={`${base} bg-gray-700 border-gray-600 text-gray-400`} style={{animationDelay: "0.15s"}}>
       <span className="text-xs absolute top-1 left-1.5 text-teal-300 font-semibold">{LABELS[index]}</span>
       <span>?</span>
     </div>
   );
-  
   return (
     <div className={`${base} ${color==='blanco'?'bg-white text-black border-gray-400':'bg-black text-white border-gray-600'} hover:scale-105`}>
       <span className="text-xs absolute top-1 left-1.5 opacity-60">{LABELS[index]}</span>
@@ -77,8 +64,8 @@ const Ficha = ({numero, color, oculta, index}) => {
 };
 
 const Mano = ({jugador, soyYo, esMiTurno, esCodigoOculto}) => (
-  <div className={`p-2 sm:p-3 md:p-4 bg-gray-800/60 rounded-xl my-2 w-full fade ${esMiTurno ? 'border-2 border-teal-500 pulse-border' : ''} ${esCodigoOculto ? 'border border-yellow-500/50' : ''}`}>
-    <h3 className="text-teal-300 font-semibold mb-2 text-base sm:text-lg">
+  <div className={`p-1.5 sm:p-2 md:p-3 bg-gray-800/60 rounded-xl my-1.5 w-full fade ${esMiTurno ? 'border-2 border-teal-500 pulse-border' : ''} ${esCodigoOculto ? 'border border-yellow-500/50' : ''}`}>
+    <h3 className="text-teal-300 font-semibold mb-1 text-sm sm:text-base">
       {jugador.name} {soyYo && '(Tú)'} {esCodigoOculto && '🔒'}
     </h3>
     <div className="flex justify-center flex-wrap w-full">
@@ -144,24 +131,12 @@ const QuestionNotification = ({pregunta, onClose}) => {
   );
 };
 
-const NotebookPanel = ({notas, customNotes, setCustomNotes}) => {
-  const [newNote, setNewNote] = useState('');
-  const [expandedNotes, setExpandedNotes] = useState({});
+const NotebookPanel = ({notas}) => {
+  const [noteContent, setNoteContent] = useState('');
+  const [expandedQuestions, setExpandedQuestions] = useState({});
   
-  const addCustomNote = () => {
-    if (newNote.trim()) {
-      const id = Date.now();
-      setCustomNotes(prev => [...prev, {id, content: newNote, timestamp: new Date().toLocaleTimeString()}]);
-      setNewNote('');
-    }
-  };
-
-  const deleteNote = (id) => {
-    setCustomNotes(prev => prev.filter(n => n.id !== id));
-  };
-
-  const toggleNote = (id) => {
-    setExpandedNotes(prev => ({...prev, [id]: !prev[id]}));
+  const toggleQuestion = (id) => {
+    setExpandedQuestions(prev => ({...prev, [id]: !prev[id]}));
   };
   
   return (
@@ -169,49 +144,37 @@ const NotebookPanel = ({notas, customNotes, setCustomNotes}) => {
       <div className="px-3 py-2 bg-gray-900 border-b border-gray-700">
         <h3 className="text-teal-400 font-semibold text-sm">📝 Bloc de Notas</h3>
       </div>
-      
-      <div className="flex-1 overflow-y-auto p-2">
-        <div className="text-xs font-semibold text-gray-400 mb-2">Historial de Preguntas:</div>
+      <div className="border-b border-gray-700 max-h-48 overflow-y-auto p-2">
+        <div className="text-xs font-semibold text-gray-400 mb-1">Historial de Preguntas:</div>
         {notas.length === 0 && (
           <div className="text-gray-500 italic text-xs text-center my-2">Sin preguntas aún</div>
         )}
         {notas.slice().reverse().map(n=>(
-          <div key={n.id} className="bg-gray-700/50 rounded p-1.5 mb-2 text-xs">
-            <div className="font-semibold text-teal-300 mb-1 cursor-pointer" onClick={()=>toggleNote(n.id)}>
-              {expandedNotes[n.id] ? "▼" : "▶"} {n.title.length > 35 ? n.title.substring(0, 35) + '...' : n.title}
+          <div key={n.id} className="bg-gray-700/50 rounded p-1.5 mb-1.5 text-xs">
+            <div className="font-semibold text-teal-300 cursor-pointer flex items-start" onClick={()=>toggleQuestion(n.id)}>
+              <span className="mr-1">{expandedQuestions[n.id] ? "▼" : "▶"}</span>
+              <span className="flex-1">{n.title.length > 30 ? n.title.substring(0, 30) + '...' : n.title}</span>
             </div>
-            {expandedNotes[n.id] && <div className="text-gray-300 text-xs whitespace-pre-wrap mt-1 pl-2 border-l-2 border-teal-500/50">{n.body}</div>}
-          </div>
-        ))}
-        
-        <div className="text-xs font-semibold text-gray-400 mb-2 mt-4">Mis Notas:</div>
-        {customNotes.map(cn=>(
-          <div key={cn.id} className="bg-blue-900/30 rounded p-1.5 mb-2 text-xs border border-blue-700/50 relative group">
-            <div className="text-blue-300 text-xs pr-4">{cn.content}</div>
-            <div className="text-gray-500 text-xs mt-1">{cn.timestamp}</div>
-            <button 
-              onClick={() => deleteNote(cn.id)}
-              className="absolute top-1 right-1 text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              ×
-            </button>
+            {expandedQuestions[n.id] && (
+              <div className="text-gray-300 text-xs whitespace-pre-wrap mt-1 pl-3 border-l-2 border-teal-500/50">
+                {n.body}
+              </div>
+            )}
           </div>
         ))}
       </div>
-      
-      <div className="p-2 border-t border-gray-700 bg-gray-900">
+      <div className="flex-1 flex flex-col p-2">
+        <div className="text-xs font-semibold text-gray-400 mb-1">Mis Notas:</div>
         <textarea 
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          placeholder="Escribe una nota..."
-          className="w-full p-1.5 text-xs bg-gray-700 border border-gray-600 rounded text-white resize-none"
-          rows="2"
+          value={noteContent}
+          onChange={(e) => setNoteContent(e.target.value)}
+          placeholder="Escribe tus notas aquí...\nPuedes editar en cualquier momento."
+          className="flex-1 w-full p-2 text-xs bg-gray-700 border border-gray-600 rounded text-white resize-none focus:outline-none focus:border-teal-500"
+          style={{fontFamily: 'monospace'}}
         />
-        <button 
-          onClick={addCustomNote}
-          className="w-full mt-1 py-1 text-xs bg-blue-600 hover:bg-blue-500 rounded font-semibold">
-          Añadir Nota
-        </button>
+        <div className="text-xs text-gray-500 mt-1 text-right">
+          {noteContent.length} caracteres
+        </div>
       </div>
     </div>
   );
@@ -238,7 +201,6 @@ const App = () => {
   const [enPartida, setEnPartida] = useState(false);
   const [socketId, setSocketId] = useState(null);
   const [notasPrivadas, setNotasPrivadas] = useState([]);
-  const [customNotes, setCustomNotes] = useState([]);
   const [esperandoCierre, setEsperandoCierre] = useState(false);
   const [modal, setModal] = useState({show:false, title:'', body:'', modalType:null});
   const [toasts, setToasts] = useState([]);
@@ -272,15 +234,11 @@ const App = () => {
     socket.on('questionResult', r => {
       const id = Date.now();
       setNotasPrivadas(prev => [...prev, {id, title:r.title, body:r.body, abierta:true}]);
-      
-      // CAMBIO: Mostrar notificación para TODOS los jugadores
       setCurrentQuestion({id, title:r.title, body:r.body});
-      setTimeout(() => setCurrentQuestion(null), 8000); // Auto-cerrar después de 8 segundos
-      
+      setTimeout(() => setCurrentQuestion(null), 8000);
       if (r.autor === socket.id) {
         setEsperandoCierre(true);
       }
-      
       setEstado(p => ({...p, usedQuestions:r.usedQuestions}));
     });
     socket.on('turnChanged', i => {
@@ -368,32 +326,22 @@ const App = () => {
     <div className="flex w-full min-h-screen">
       {enPartida && (
         <NotebookPanel 
-          notas={notasPrivadas} 
-          customNotes={customNotes}
-          setCustomNotes={setCustomNotes}
+          notas={notasPrivadas}
         />
       )}
-      
-      <div className={`flex flex-col items-center justify-center w-full mx-auto p-3 sm:p-4 text-center min-h-screen ${enPartida ? 'lg:ml-64' : 'max-w-7xl'}`}>
-        <h1 className="text-2xl sm:text-3xl font-bold text-teal-400 mb-3 sm:mb-4">Descifra el Código</h1>
-        
+      <div className={`flex flex-col items-center justify-center w-full max-w-6xl mx-auto px-3 py-2 text-center min-h-screen ${enPartida ? 'lg:ml-64' : ''}`}>
+        <h1 className="text-xl sm:text-2xl font-bold text-teal-400 mb-2">Descifra el Código</h1>
         {currentQuestion && (
-          <QuestionNotification 
-            pregunta={currentQuestion} 
-            onClose={() => setCurrentQuestion(null)}
-          />
+          <QuestionNotification pregunta={currentQuestion} onClose={() => setCurrentQuestion(null)} />
         )}
-        
         {!enPartida ? (
           <div className="bg-gray-800 p-4 sm:p-8 rounded-xl max-w-md w-full">
             <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white" value={nombre} onChange={e=>setNombre(e.target.value)}/>
             <input placeholder="Código de sala" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded text-white" value={sala} onChange={e=>setSala(e.target.value)}/>
             <button onClick={unirse} className="w-full bg-teal-600 hover:bg-teal-500 py-2 rounded font-semibold">Unirse</button>
-            
             {esCreadorSala && totalPlayersInLobby >= 1 && sala && (
               <ShareButton sala={sala} onCopyLink={copyShareLink} />
             )}
-
             {totalPlayersInLobby > 0 && (
               <div className="mt-3 text-gray-300">
                 <p className="font-semibold text-teal-300 mb-1">Jugadores en la sala ({totalPlayersInLobby}/{maxPlayers}):</p>
@@ -407,22 +355,20 @@ const App = () => {
         ) : (
           estado && (
             <div className="fade w-full text-center">
-              <h2 className="text-base sm:text-lg mb-2 sm:mb-3">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full mb-3">
+              <h2 className="text-sm sm:text-base mb-1.5">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full mb-2 max-w-5xl mx-auto">
                 {manosAMostrar.map((p,i)=> {
                   const esCodigoOculto = p.id === 'hidden';
                   return <Mano key={p.id} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()} esCodigoOculto={esCodigoOculto}/>
                 })}
               </div>
-              
-              <div className="relative h-32 sm:h-40 md:h-48 flex justify-center items-center my-3">
+              <div className="relative h-28 sm:h-32 md:h-36 flex justify-center items-center my-2">
                 {estado.questions && estado.questions.map((q,i)=>{
                   if(estado.usedQuestions[i])return null;
                   const ang = (i - estado.questions.length / 2) * 5;
                   return (
                     <div key={i} onClick={()=>lanzarPregunta(i)}
-                      className={`absolute left-1/2 top-1/2 w-20 h-12 sm:w-28 sm:h-16 md:w-36 md:h-20 flex items-center justify-center text-black font-bold rounded-lg shadow-md border text-xs sm:text-sm md:text-base
+                      className={`absolute left-1/2 top-1/2 w-16 h-10 sm:w-20 sm:h-12 md:w-24 md:h-14 flex items-center justify-center text-black font-bold rounded-lg shadow-md border text-xs sm:text-sm
                         ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105 transition-transform':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
                       style={{
                         transform: `translate(-50%, -50%) rotate(${ang}deg)`,
@@ -433,24 +379,22 @@ const App = () => {
                   );
                 })}
               </div>
-              
               <div className="flex flex-col items-center w-full max-w-md mx-auto">
                 <button disabled={!esMiTurno()} onClick={abrirAdivinar}
-                  className={`mt-3 w-full py-2 rounded font-bold text-white ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
+                  className={`mt-2 w-full py-1.5 rounded font-bold text-white text-sm ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
                   Adivinar código
                 </button>
                 <button disabled={!esMiTurno()} onClick={pasarTurno}
-                  className={`mt-2 w-full py-2 rounded font-bold text-white ${esMiTurno()?'bg-yellow-600 hover:bg-yellow-500':'bg-gray-700 cursor-not-allowed'}`}>
+                  className={`mt-1.5 w-full py-1.5 rounded font-bold text-white text-sm ${esMiTurno()?'bg-yellow-600 hover:bg-yellow-500':'bg-gray-700 cursor-not-allowed'}`}>
                   Pasar turno
                 </button>
               </div>
             </div>
         ))}
-        
         <Modal show={modal.show} title={modal.title} body={modal.body} onClose={()=>setModal(m=>({...m,show:false}))}
               modalType={modal.modalType} onSubmitGuess={modal.onSubmitGuess}/>
         <ToastContainer toasts={toasts} removeToast={removeToast} />
-        <div className="hidden-text">© 2025 Nahuel</div>
+        <div className="hidden-text">© 2025 Nahuel Granollers</div>
       </div>
     </div>
   );
