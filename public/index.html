@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Descifra el Código - Multijugador</title>
-<!-- Favicon emoji 🧩 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🧩</text></svg>">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -15,18 +14,10 @@
   html { font-size: 16px; }
   @media (max-width: 640px) { html { font-size: 14px; } }
   .hidden-text {
-    position: fixed;
-    bottom: 0.5rem;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.75rem;
-    color: rgba(255,255,255,0.6);
-    opacity: 0;
-    transition: opacity 1.3s ease;
-    pointer-events: auto;
-    z-index: 20;
-    cursor: pointer;
-    text-decoration: underline;
+    position: fixed; bottom: 0.5rem; left: 50%; transform: translateX(-50%);
+    font-size: 0.75rem; color: rgba(255,255,255,0.7);
+    opacity: 0; transition: opacity 1.3s ease;
+    pointer-events: auto; z-index: 20; cursor: pointer; text-decoration: underline;
   }
   body:hover .hidden-text { opacity: 1; transition: opacity 0.8s ease-in; }
   body:not(:hover) .hidden-text { opacity: 0; transition: opacity 2.5s ease-out; }
@@ -60,7 +51,7 @@ const LABELS = ['A', 'B', 'C', 'D', 'E'];
 const Ficha = ({numero, color, oculta, index}) => {
   const base = "w-9 h-12 sm:w-10 sm:h-14 md:w-12 md:h-16 flex flex-col items-center justify-center rounded-lg m-0.5 sm:m-1 border text-sm sm:text-base md:text-lg font-bold transition-all duration-300 fade relative"
   if (oculta) return (
-    <div className={`${base} bg-gray-700 border-gray-600 text-gray-400`} style={{animationDelay: "0.15s"}}>
+    <div className={`${base} bg-gray-700 border-gray-600 text-gray-400`}>
       <span className="text-xs absolute top-1 left-1.5 text-teal-300 font-semibold">{LABELS[index]}</span>
       <span>?</span>
     </div>
@@ -76,10 +67,18 @@ const Ficha = ({numero, color, oculta, index}) => {
 const Mano = ({jugador, soyYo, esMiTurno, esCodigoOculto}) => (
   <div className={`p-1.5 sm:p-2 md:p-3 bg-gray-800/60 rounded-xl my-1.5 w-full fade ${esMiTurno ? 'border-2 border-teal-500 pulse-border' : ''} ${esCodigoOculto ? 'border border-yellow-500/50' : ''}`}>
     <h3 className="text-teal-300 font-semibold mb-1 text-sm sm:text-base">
-      {jugador.name} {soyYo && '(Tú)'} {esCodigoOculto && '🔒'}
+      {jugador.name}{esCodigoOculto ? " (Oculto)" : soyYo ? " (Tú)" : ""}
     </h3>
     <div className="flex justify-center flex-wrap w-full">
-      {jugador.hand.map((t,i)=> <Ficha key={i} numero={t.numero} color={t.color} oculta={!soyYo && !esCodigoOculto} index={i}/>)}
+      {jugador.hand.map((t,i)=> (
+        <Ficha
+          key={i}
+          numero={esCodigoOculto ? "" : t.numero}
+          color={esCodigoOculto ? null : t.color}
+          oculta={esCodigoOculto ? true : (!soyYo && !esCodigoOculto)}
+          index={i}
+        />
+      ))}
     </div>
   </div>
 );
@@ -245,13 +244,13 @@ const App = () => {
       setNotasPrivadas([]);
     });
     socket.on('questionResult', r => {
+      // NO mostrar respuesta del código oculto ni en notificación ni historial
+      if (r.playerId && r.playerId === "hidden") return;
       const id = Date.now();
       setNotasPrivadas(prev => [...prev, {id, title:r.title, body:r.body, abierta:true}]);
       setCurrentQuestion({id, title:r.title, body:r.body});
       setTimeout(() => setCurrentQuestion(null), 8000);
-      if (r.autor === socket.id) {
-        setEsperandoCierre(true);
-      }
+      if (r.autor === socket.id) setEsperandoCierre(true);
       setEstado(p => ({...p, usedQuestions:r.usedQuestions}));
     });
     socket.on('turnChanged', i => {
@@ -325,9 +324,18 @@ const App = () => {
   const totalPlayersInLobby = jugadores.length;
   const maxPlayers = 4;
 
-  const manosAMostrar = estado ? [...estado.players.filter(p=>p.id!=='hidden')] : [];
+  // Mostrar todos los jugadores y el código oculto como "Oculto"
+  const manosAMostrar = estado
+    ? [
+        ...estado.players,
+        ...(estado.missing && estado.mode === "missing" ? [{
+          id: "hidden",
+          name: "Código Oculto",
+          hand: [{},{},{},{},{}]
+        }] : [])
+      ]
+    : [];
 
-  // CENTRADO real
   return (
     <div className="flex w-full min-h-screen">
       {enPartida && (
@@ -365,8 +373,8 @@ const App = () => {
                 <h2 className="text-sm sm:text-base mb-1.5">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full mb-2 max-w-5xl mx-auto">
                   {manosAMostrar.map((p,i)=> {
-                    const esCodigoOculto = false;
-                    return <Mano key={p.id} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()} esCodigoOculto={esCodigoOculto}/>
+                    const esCodigoOculto = (p.id === 'hidden');
+                    return <Mano key={p.id||i} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()} esCodigoOculto={esCodigoOculto}/>
                   })}
                 </div>
                 <div className="relative h-28 sm:h-32 md:h-36 flex justify-center items-center my-2">
