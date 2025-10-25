@@ -67,7 +67,7 @@ const Ficha = ({numero, color, oculta, index}) => {
 const Mano = ({jugador, soyYo, esMiTurno, esCodigoOculto}) => (
   <div className={`p-1.5 sm:p-2 md:p-3 bg-gray-800/60 rounded-xl my-1.5 w-full fade ${esMiTurno ? 'border-2 border-teal-500 pulse-border' : ''} ${esCodigoOculto ? 'border border-yellow-500/50' : ''}`}>
     <h3 className="text-teal-300 font-semibold mb-1 text-sm sm:text-base">
-      {jugador.name}{esCodigoOculto ? " (Oculto)" : soyYo ? " (Tú)" : ""}
+      {jugador.name}{esCodigoOculto ? : soyYo ? " (Tú)" : ""}
     </h3>
     <div className="flex justify-center flex-wrap w-full">
       {jugador.hand.map((t,i)=> (
