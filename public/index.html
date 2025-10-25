@@ -60,7 +60,7 @@
   }
 </style>
 </head>
-<body class="bg-gradient-to-b from-gray-900 to-black text-white flex items-center justify-center min-h-screen">
+<body class="bg-gradient-to-b from-gray-900 to-black text-white">
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
@@ -70,12 +70,14 @@ const LABELS = ['A', 'B', 'C', 'D', 'E'];
 
 const Ficha = ({numero, color, oculta, index}) => {
   const base = "w-10 h-14 sm:w-12 sm:h-16 md:w-14 md:h-20 flex flex-col items-center justify-center rounded-lg m-1 border text-base sm:text-lg md:text-xl font-bold transition-all duration-300 fade relative"
+  
   if (oculta) return (
     <div className={`${base} bg-gray-700 border-gray-600 text-gray-400`} style={{animationDelay: "0.15s"}}>
-      <span className="text-xs absolute top-1 left-1.5">?</span>
+      <span className="text-xs absolute top-1 left-1.5 text-teal-300 font-semibold">{LABELS[index]}</span>
       <span>?</span>
     </div>
   );
+  
   return (
     <div className={`${base} ${color==='blanco'?'bg-white text-black border-gray-400':'bg-black text-white border-gray-600'} hover:scale-105`}>
       <span className="text-xs absolute top-1 left-1.5 opacity-60">{LABELS[index]}</span>
@@ -166,7 +168,7 @@ const NotesDrawer = ({visible, onClose, notas, toggleNota}) => {
 
 const NotesButton = ({onClick, hayNotas}) => (
   <button
-    className="fixed top-3 right-3 z-40 bg-blue-600 text-white rounded-full shadow-lg w-14 h-14 flex flex-col items-center justify-center hover:bg-blue-700 transition-colors"
+    className="fixed top-3 right-3 z-40 bg-blue-600 text-white rounded-full shadow-lg w-14 h-14 flex flex-col items-center justify-center hover:bg-blue-700 transition-colors lg:hidden"
     onClick={onClick}
     style={{fontWeight: 'bold', fontSize:'20px'}}
     aria-label="Ver notas privadas"
@@ -175,6 +177,64 @@ const NotesButton = ({onClick, hayNotas}) => (
     {hayNotas > 0 && <span className="text-xs">{hayNotas}</span>}
   </button>
 );
+
+const NotebookPanel = ({notas, toggleNota, customNotes, setCustomNotes}) => {
+  const [newNote, setNewNote] = useState('');
+  
+  const addCustomNote = () => {
+    if (newNote.trim()) {
+      const id = Date.now();
+      setCustomNotes(prev => [...prev, {id, content: newNote, timestamp: new Date().toLocaleTimeString()}]);
+      setNewNote('');
+    }
+  };
+  
+  return (
+    <div className="fixed left-0 top-0 h-full w-64 bg-gray-800/95 shadow-2xl flex flex-col overflow-hidden border-r border-gray-700 hidden lg:flex z-30">
+      <div className="px-3 py-2 bg-gray-900 border-b border-gray-700">
+        <h3 className="text-teal-400 font-semibold text-sm">📝 Bloc de Notas</h3>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto p-2">
+        <div className="text-xs font-semibold text-gray-400 mb-2">Historial de Preguntas:</div>
+        {notas.length === 0 && (
+          <div className="text-gray-500 italic text-xs text-center my-2">Sin preguntas aún</div>
+        )}
+        {notas.slice().reverse().map(n=>(
+          <div key={n.id} className="bg-gray-700/50 rounded p-1.5 mb-2 text-xs">
+            <div className="font-semibold text-teal-300 mb-1 cursor-pointer" onClick={()=>toggleNota(n.id)}>
+              {n.abierta ? "▼" : "▶"} {n.title.substring(0, 30)}...
+            </div>
+            {n.abierta && <div className="text-gray-300 text-xs whitespace-pre-wrap">{n.body}</div>}
+          </div>
+        ))}
+        
+        <div className="text-xs font-semibold text-gray-400 mb-2 mt-4">Notas Personales:</div>
+        {customNotes.map(cn=>(
+          <div key={cn.id} className="bg-blue-900/30 rounded p-1.5 mb-2 text-xs border border-blue-700/50">
+            <div className="text-blue-300 text-xs">{cn.content}</div>
+            <div className="text-gray-500 text-xs mt-1">{cn.timestamp}</div>
+          </div>
+        ))}
+      </div>
+      
+      <div className="p-2 border-t border-gray-700 bg-gray-900">
+        <textarea 
+          value={newNote}
+          onChange={(e) => setNewNote(e.target.value)}
+          placeholder="Escribe una nota..."
+          className="w-full p-1.5 text-xs bg-gray-700 border border-gray-600 rounded text-white resize-none"
+          rows="2"
+        />
+        <button 
+          onClick={addCustomNote}
+          className="w-full mt-1 py-1 text-xs bg-blue-600 hover:bg-blue-500 rounded font-semibold">
+          Añadir Nota
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const ShareButton = ({sala, onCopyLink}) => (
   <button
@@ -197,6 +257,7 @@ const App = () => {
   const [enPartida, setEnPartida] = useState(false);
   const [socketId, setSocketId] = useState(null);
   const [notasPrivadas, setNotasPrivadas] = useState([]);
+  const [customNotes, setCustomNotes] = useState([]);
   const [esperandoCierre, setEsperandoCierre] = useState(false);
   const [modal, setModal] = useState({show:false, title:'', body:'', modalType:null});
   const [toasts, setToasts] = useState([]);
@@ -229,13 +290,7 @@ const App = () => {
     });
     socket.on('questionResult', r => {
       const id = Date.now();
-      console.log('🔔 Pregunta recibida:', r.title); // DEBUG
-      console.log('📝 Guardando en notas privadas...'); // DEBUG
-      setNotasPrivadas(prev => {
-        const nuevasNotas = [...prev, {id, title:r.title, body:r.body, abierta:true}];
-        console.log('📚 Total notas:', nuevasNotas.length); // DEBUG
-        return nuevasNotas;
-      });
+      setNotasPrivadas(prev => [...prev, {id, title:r.title, body:r.body, abierta:true}]);
       
       if (r.autor === socket.id) {
         setModal({show:true, title:r.title, body:r.body, modalType:null});
@@ -327,12 +382,15 @@ const App = () => {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center w-full max-w-7xl mx-auto p-3 sm:p-4 text-center min-h-screen">
-      <h1 className="text-2xl sm:text-3xl font-bold text-teal-400 mb-3 sm:mb-4">Descifra el Código</h1>
-      
-      {/* CAMBIO: Botón siempre visible durante la partida */}
+    <div className="flex w-full min-h-screen">
       {enPartida && (
         <>
+          <NotebookPanel 
+            notas={notasPrivadas} 
+            toggleNota={toggleNota}
+            customNotes={customNotes}
+            setCustomNotes={setCustomNotes}
+          />
           <NotesButton onClick={()=>setShowNotesDrawer(true)} hayNotas={notasPrivadas.length}/>
           <NotesDrawer
             visible={showNotesDrawer}
@@ -343,73 +401,77 @@ const App = () => {
         </>
       )}
       
-      {!enPartida ? (
-        <div className="bg-gray-800 p-4 sm:p-8 rounded-xl max-w-md w-full">
-          <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white" value={nombre} onChange={e=>setNombre(e.target.value)}/>
-          <input placeholder="Código de sala" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded text-white" value={sala} onChange={e=>setSala(e.target.value)}/>
-          <button onClick={unirse} className="w-full bg-teal-600 hover:bg-teal-500 py-2 rounded font-semibold">Unirse</button>
-          
-          {esCreadorSala && totalPlayersInLobby >= 1 && sala && (
-            <ShareButton sala={sala} onCopyLink={copyShareLink} />
-          )}
+      <div className={`flex flex-col items-center justify-center w-full mx-auto p-3 sm:p-4 text-center min-h-screen ${enPartida ? 'lg:ml-64' : 'max-w-7xl'}`}>
+        <h1 className="text-2xl sm:text-3xl font-bold text-teal-400 mb-3 sm:mb-4">Descifra el Código</h1>
+        
+        {!enPartida ? (
+          <div className="bg-gray-800 p-4 sm:p-8 rounded-xl max-w-md w-full">
+            <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white" value={nombre} onChange={e=>setNombre(e.target.value)}/>
+            <input placeholder="Código de sala" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded text-white" value={sala} onChange={e=>setSala(e.target.value)}/>
+            <button onClick={unirse} className="w-full bg-teal-600 hover:bg-teal-500 py-2 rounded font-semibold">Unirse</button>
+            
+            {esCreadorSala && totalPlayersInLobby >= 1 && sala && (
+              <ShareButton sala={sala} onCopyLink={copyShareLink} />
+            )}
 
-          {totalPlayersInLobby > 0 && (
-            <div className="mt-3 text-gray-300">
-              <p className="font-semibold text-teal-300 mb-1">Jugadores en la sala ({totalPlayersInLobby}/{maxPlayers}):</p>
-              {jugadores.map(j=><p key={j.id} className="text-sm">{j.name}</p>)}
-            </div>
-          )}
-          {totalPlayersInLobby >= 2 && totalPlayersInLobby <= maxPlayers && (
-            <button onClick={comenzar} className="w-full mt-3 bg-green-600 hover:bg-green-500 py-2 rounded font-semibold">Empezar partida</button>
-          )}
-        </div>
-      ) : (
-        estado && (
-          <div className="fade w-full text-center">
-            <h2 className="text-base sm:text-lg mb-2 sm:mb-3">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full mb-3">
-              {manosAMostrar.map((p,i)=> {
-                const esCodigoOculto = p.id === 'hidden';
-                return <Mano key={p.id} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()} esCodigoOculto={esCodigoOculto}/>
-              })}
-            </div>
-            
-            <div className="relative h-32 sm:h-40 md:h-48 flex justify-center items-center my-3">
-              {estado.questions && estado.questions.map((q,i)=>{
-                if(estado.usedQuestions[i])return null;
-                const ang = (i - estado.questions.length / 2) * 5;
-                return (
-                  <div key={i} onClick={()=>lanzarPregunta(i)}
-                    className={`absolute left-1/2 top-1/2 w-20 h-12 sm:w-28 sm:h-16 md:w-36 md:h-20 flex items-center justify-center text-black font-bold rounded-lg shadow-md border text-xs sm:text-sm md:text-base
-                      ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105 transition-transform':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
-                    style={{
-                      transform: `translate(-50%, -50%) rotate(${ang}deg)`,
-                      zIndex: estado.questions.length - i
-                    }}>
-                    P {i + 1}
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="flex flex-col items-center w-full max-w-md mx-auto">
-              <button disabled={!esMiTurno()} onClick={abrirAdivinar}
-                className={`mt-3 w-full py-2 rounded font-bold text-white ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
-                Adivinar código
-              </button>
-              <button disabled={!esMiTurno()} onClick={pasarTurno}
-                className={`mt-2 w-full py-2 rounded font-bold text-white ${esMiTurno()?'bg-yellow-600 hover:bg-yellow-500':'bg-gray-700 cursor-not-allowed'}`}>
-                Pasar turno
-              </button>
-            </div>
+            {totalPlayersInLobby > 0 && (
+              <div className="mt-3 text-gray-300">
+                <p className="font-semibold text-teal-300 mb-1">Jugadores en la sala ({totalPlayersInLobby}/{maxPlayers}):</p>
+                {jugadores.map(j=><p key={j.id} className="text-sm">{j.name}</p>)}
+              </div>
+            )}
+            {totalPlayersInLobby >= 2 && totalPlayersInLobby <= maxPlayers && (
+              <button onClick={comenzar} className="w-full mt-3 bg-green-600 hover:bg-green-500 py-2 rounded font-semibold">Empezar partida</button>
+            )}
           </div>
-      ))}
-      
-      <Modal show={modal.show} title={modal.title} body={modal.body} onClose={()=>setModal(m=>({...m,show:false}))}
-            modalType={modal.modalType} onSubmitGuess={modal.onSubmitGuess}/>
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <div className="hidden-text">© 2025 Nahuel Granollers</div>
+        ) : (
+          estado && (
+            <div className="fade w-full text-center">
+              <h2 className="text-base sm:text-lg mb-2 sm:mb-3">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full mb-3">
+                {manosAMostrar.map((p,i)=> {
+                  const esCodigoOculto = p.id === 'hidden';
+                  return <Mano key={p.id} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()} esCodigoOculto={esCodigoOculto}/>
+                })}
+              </div>
+              
+              <div className="relative h-32 sm:h-40 md:h-48 flex justify-center items-center my-3">
+                {estado.questions && estado.questions.map((q,i)=>{
+                  if(estado.usedQuestions[i])return null;
+                  const ang = (i - estado.questions.length / 2) * 5;
+                  return (
+                    <div key={i} onClick={()=>lanzarPregunta(i)}
+                      className={`absolute left-1/2 top-1/2 w-20 h-12 sm:w-28 sm:h-16 md:w-36 md:h-20 flex items-center justify-center text-black font-bold rounded-lg shadow-md border text-xs sm:text-sm md:text-base
+                        ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105 transition-transform':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
+                      style={{
+                        transform: `translate(-50%, -50%) rotate(${ang}deg)`,
+                        zIndex: estado.questions.length - i
+                      }}>
+                      P {i + 1}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="flex flex-col items-center w-full max-w-md mx-auto">
+                <button disabled={!esMiTurno()} onClick={abrirAdivinar}
+                  className={`mt-3 w-full py-2 rounded font-bold text-white ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
+                  Adivinar código
+                </button>
+                <button disabled={!esMiTurno()} onClick={pasarTurno}
+                  className={`mt-2 w-full py-2 rounded font-bold text-white ${esMiTurno()?'bg-yellow-600 hover:bg-yellow-500':'bg-gray-700 cursor-not-allowed'}`}>
+                  Pasar turno
+                </button>
+              </div>
+            </div>
+        ))}
+        
+        <Modal show={modal.show} title={modal.title} body={modal.body} onClose={()=>setModal(m=>({...m,show:false}))}
+              modalType={modal.modalType} onSubmitGuess={modal.onSubmitGuess}/>
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+        <div className="hidden-text">© 2025 Nahuel</div>
+      </div>
     </div>
   );
 };
