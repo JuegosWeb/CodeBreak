@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Descifra el Código - Multijugador</title>
-<!-- Favicon puzzle emoji 🧩 -->
+<!-- Favicon emoji 🧩 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🧩</text></svg>">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -15,9 +15,18 @@
   html { font-size: 16px; }
   @media (max-width: 640px) { html { font-size: 14px; } }
   .hidden-text {
-    position: fixed; bottom: 0.5rem; left: 50%; transform: translateX(-50%);
-    font-size: 0.75rem; color: rgba(255,255,255,0.6); opacity: 0;
-    transition: opacity 1.3s ease; pointer-events: none; z-index: 20;
+    position: fixed;
+    bottom: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.6);
+    opacity: 0;
+    transition: opacity 1.3s ease;
+    pointer-events: auto;
+    z-index: 20;
+    cursor: pointer;
+    text-decoration: underline;
   }
   body:hover .hidden-text { opacity: 1; transition: opacity 0.8s ease-in; }
   body:not(:hover) .hidden-text { opacity: 0; transition: opacity 2.5s ease-out; }
@@ -114,6 +123,13 @@ const Modal = ({show, title, body, onClose, modalType, onSubmitGuess}) => {
   );
 };
 
+// Cambia "no tienes" por "no tiene" en respuestas de preguntas
+const prettifyAnswer = (txt) => {
+  return typeof txt === "string"
+    ? txt.replace(/\bno tienes\b/gi, "no tiene")
+    : txt;
+};
+
 const QuestionNotification = ({pregunta, onClose}) => {
   return (
     <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-40 max-w-2xl w-11/12 slideIn">
@@ -121,7 +137,7 @@ const QuestionNotification = ({pregunta, onClose}) => {
         <div className="flex justify-between items-start">
           <div className="flex-1">
             <h3 className="font-bold text-white text-lg mb-2">{pregunta.title}</h3>
-            <p className="text-white/90 text-sm whitespace-pre-line">{pregunta.body}</p>
+            <p className="text-white/90 text-sm whitespace-pre-line">{prettifyAnswer(pregunta.body)}</p>
           </div>
           <button onClick={onClose} className="text-white text-2xl px-2 hover:bg-white/20 rounded ml-2">&times;</button>
         </div>
@@ -154,7 +170,7 @@ const NotebookPanel = ({notas}) => {
             </div>
             {expandedQuestions[n.id] && (
               <div className="text-gray-300 text-xs whitespace-pre-wrap mt-1 pl-3 border-l-2 border-teal-500/50">
-                {n.body}
+                {prettifyAnswer(n.body)}
               </div>
             )}
           </div>
@@ -165,7 +181,7 @@ const NotebookPanel = ({notas}) => {
         <textarea 
           value={noteContent}
           onChange={(e) => setNoteContent(e.target.value)}
-          placeholder="Escribe tus notas aquí...\nPuedes editar en cualquier momento."
+          placeholder="Escribe tus notas aquí... Puedes editar en cualquier momento."
           className="flex-1 w-full p-2 text-xs bg-gray-700 border border-gray-600 rounded text-white resize-none focus:outline-none focus:border-teal-500"
           style={{fontFamily: 'monospace'}}
         />
@@ -177,7 +193,6 @@ const NotebookPanel = ({notas}) => {
   );
 };
 
-// NO se muestra el código oculto, solo los jugadores reales
 const ShareButton = ({sala, onCopyLink}) => (
   <button
     onClick={onCopyLink}
@@ -310,9 +325,9 @@ const App = () => {
   const totalPlayersInLobby = jugadores.length;
   const maxPlayers = 4;
 
-  // Solo jugadores, no renders de código oculto en modo 3 jugadores
   const manosAMostrar = estado ? [...estado.players.filter(p=>p.id!=='hidden')] : [];
 
+  // CENTRADO real
   return (
     <div className="flex w-full min-h-screen">
       {enPartida && (
@@ -320,72 +335,79 @@ const App = () => {
           notas={notasPrivadas}
         />
       )}
-      <div className={`flex flex-col items-center justify-center w-full max-w-6xl mx-auto px-3 py-2 text-center min-h-screen ${enPartida ? 'lg:ml-64' : ''}`}>
-        <h1 className="text-xl sm:text-2xl font-bold text-teal-400 mb-2">Descifra el Código</h1>
-        {currentQuestion && (
-          <QuestionNotification pregunta={currentQuestion} onClose={() => setCurrentQuestion(null)} />
-        )}
-        {!enPartida ? (
-          <div className="bg-gray-800 p-4 sm:p-8 rounded-xl max-w-md w-full">
-            <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white" value={nombre} onChange={e=>setNombre(e.target.value)}/>
-            <input placeholder="Código de sala" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded text-white" value={sala} onChange={e=>setSala(e.target.value)}/>
-            <button onClick={unirse} className="w-full bg-teal-600 hover:bg-teal-500 py-2 rounded font-semibold">Unirse</button>
-            {esCreadorSala && totalPlayersInLobby >= 1 && sala && (
-              <ShareButton sala={sala} onCopyLink={copyShareLink} />
-            )}
-            {totalPlayersInLobby > 0 && (
-              <div className="mt-3 text-gray-300">
-                <p className="font-semibold text-teal-300 mb-1">Jugadores en la sala ({totalPlayersInLobby}/{maxPlayers}):</p>
-                {jugadores.map(j=><p key={j.id} className="text-sm">{j.name}</p>)}
-              </div>
-            )}
-            {totalPlayersInLobby >= 2 && totalPlayersInLobby <= maxPlayers && (
-              <button onClick={comenzar} className="w-full mt-3 bg-green-600 hover:bg-green-500 py-2 rounded font-semibold">Empezar partida</button>
-            )}
-          </div>
-        ) : (
-          estado && (
-            <div className="fade w-full text-center">
-              <h2 className="text-sm sm:text-base mb-1.5">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full mb-2 max-w-5xl mx-auto">
-                {manosAMostrar.map((p,i)=> {
-                  const esCodigoOculto = false;
-                  return <Mano key={p.id} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()} esCodigoOculto={esCodigoOculto}/>
-                })}
-              </div>
-              <div className="relative h-28 sm:h-32 md:h-36 flex justify-center items-center my-2">
-                {estado.questions && estado.questions.map((q,i)=>{
-                  if(estado.usedQuestions[i])return null;
-                  const ang = (i - estado.questions.length / 2) * 5;
-                  return (
-                    <div key={i} onClick={()=>lanzarPregunta(i)}
-                      className={`absolute left-1/2 top-1/2 w-16 h-10 sm:w-20 sm:h-12 md:w-24 md:h-14 flex items-center justify-center text-black font-bold rounded-lg shadow-md border text-xs sm:text-sm
-                        ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105 transition-transform':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
-                      style={{
-                        transform: `translate(-50%, -50%) rotate(${ang}deg)`,
-                        zIndex: estado.questions.length - i
-                      }}>
-                      P {i + 1}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex flex-col items-center w-full max-w-md mx-auto">
-                <button disabled={!esMiTurno()} onClick={abrirAdivinar}
-                  className={`mt-2 w-full py-1.5 rounded font-bold text-white text-sm ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
-                  Adivinar código
-                </button>
-                <button disabled={!esMiTurno()} onClick={pasarTurno}
-                  className={`mt-1.5 w-full py-1.5 rounded font-bold text-white text-sm ${esMiTurno()?'bg-yellow-600 hover:bg-yellow-500':'bg-gray-700 cursor-not-allowed'}`}>
-                  Pasar turno
-                </button>
-              </div>
+      <div className={`flex flex-col items-center w-full max-w-6xl mx-auto px-3 text-center min-h-screen ${enPartida ? 'lg:ml-64' : ''}`} style={{minHeight:'100vh', justifyContent:'center'}}>
+        <div style={{width:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'80vh'}}>
+          <h1 className="text-xl sm:text-2xl font-bold text-teal-400 mb-2">Descifra el Código</h1>
+          {currentQuestion && (
+            <QuestionNotification pregunta={currentQuestion} onClose={() => setCurrentQuestion(null)} />
+          )}
+          {!enPartida ? (
+            <div className="bg-gray-800 p-4 sm:p-8 rounded-xl max-w-md w-full">
+              <input placeholder="Tu nombre" className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white" value={nombre} onChange={e=>setNombre(e.target.value)}/>
+              <input placeholder="Código de sala" className="w-full p-2 mb-3 bg-gray-700 border border-gray-600 rounded text-white" value={sala} onChange={e=>setSala(e.target.value)}/>
+              <button onClick={unirse} className="w-full bg-teal-600 hover:bg-teal-500 py-2 rounded font-semibold">Unirse</button>
+              {esCreadorSala && totalPlayersInLobby >= 1 && sala && (
+                <ShareButton sala={sala} onCopyLink={copyShareLink} />
+              )}
+              {totalPlayersInLobby > 0 && (
+                <div className="mt-3 text-gray-300">
+                  <p className="font-semibold text-teal-300 mb-1">Jugadores en la sala ({totalPlayersInLobby}/{maxPlayers}):</p>
+                  {jugadores.map(j=><p key={j.id} className="text-sm">{j.name}</p>)}
+                </div>
+              )}
+              {totalPlayersInLobby >= 2 && totalPlayersInLobby <= maxPlayers && (
+                <button onClick={comenzar} className="w-full mt-3 bg-green-600 hover:bg-green-500 py-2 rounded font-semibold">Empezar partida</button>
+              )}
             </div>
-        ))}
+          ) : (
+            estado && (
+              <div className="fade w-full text-center">
+                <h2 className="text-sm sm:text-base mb-1.5">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full mb-2 max-w-5xl mx-auto">
+                  {manosAMostrar.map((p,i)=> {
+                    const esCodigoOculto = false;
+                    return <Mano key={p.id} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()} esCodigoOculto={esCodigoOculto}/>
+                  })}
+                </div>
+                <div className="relative h-28 sm:h-32 md:h-36 flex justify-center items-center my-2">
+                  {estado.questions && estado.questions.map((q,i)=>{
+                    if(estado.usedQuestions[i])return null;
+                    const ang = (i - estado.questions.length / 2) * 5;
+                    return (
+                      <div key={i} onClick={()=>lanzarPregunta(i)}
+                        className={`absolute left-1/2 top-1/2 w-16 h-10 sm:w-20 sm:h-12 md:w-24 md:h-14 flex items-center justify-center text-black font-bold rounded-lg shadow-md border text-xs sm:text-sm
+                          ${esMiTurno()&&!esperandoCierre?'bg-gradient-to-br from-teal-300 to-emerald-400 cursor-pointer hover:scale-105 transition-transform':'bg-gray-600 opacity-60 cursor-not-allowed'}`}
+                        style={{
+                          transform: `translate(-50%, -50%) rotate(${ang}deg)`,
+                          zIndex: estado.questions.length - i
+                        }}>
+                        P {i + 1}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-col items-center w-full max-w-md mx-auto">
+                  <button disabled={!esMiTurno()} onClick={abrirAdivinar}
+                    className={`mt-2 w-full py-1.5 rounded font-bold text-white text-sm ${esMiTurno()?'bg-rose-600 hover:bg-rose-500':'bg-gray-700 cursor-not-allowed'}`}>
+                    Adivinar código
+                  </button>
+                  <button disabled={!esMiTurno()} onClick={pasarTurno}
+                    className={`mt-1.5 w-full py-1.5 rounded font-bold text-white text-sm ${esMiTurno()?'bg-yellow-600 hover:bg-yellow-500':'bg-gray-700 cursor-not-allowed'}`}>
+                    Pasar turno
+                  </button>
+                </div>
+              </div>
+          ))}
+        </div>
         <Modal show={modal.show} title={modal.title} body={modal.body} onClose={()=>setModal(m=>({...m,show:false}))}
               modalType={modal.modalType} onSubmitGuess={modal.onSubmitGuess}/>
         <ToastContainer toasts={toasts} removeToast={removeToast} />
-        <div className="hidden-text">© 2025 Nahuel Granollers</div>
+        <div 
+          className="hidden-text"
+          onClick={()=>window.open('https://nahuelgranollers.com','_blank')}
+          title="Visita nahuelgranollers.com"
+          style={{userSelect:'none'}}
+        >© 2025 Nahuel Granollers</div>
       </div>
     </div>
   );
