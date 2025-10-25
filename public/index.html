@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Descifra el Código - Multijugador</title>
-<link rel="icon" href="/logo.svg" type="image/svg+xml" />
+<!-- Favicon puzzle emoji 🧩 -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🧩</text></svg>">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -88,14 +89,12 @@ const ToastContainer = ({ toasts, removeToast }) => (
 const Modal = ({show, title, body, onClose, modalType, onSubmitGuess}) => {
   if (!show) return null;
   const guessInputRef = useRef(null);
-
   const handleSubmit = () => {
     if (modalType === 'guess' && guessInputRef.current) {
       onSubmitGuess(guessInputRef.current.value);
     }
     onClose();
   };
-
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50 fade px-2">
       <div className="bg-gray-800 p-4 sm:p-6 rounded-xl w-full max-w-md border border-gray-600">
@@ -134,11 +133,9 @@ const QuestionNotification = ({pregunta, onClose}) => {
 const NotebookPanel = ({notas}) => {
   const [noteContent, setNoteContent] = useState('');
   const [expandedQuestions, setExpandedQuestions] = useState({});
-  
   const toggleQuestion = (id) => {
     setExpandedQuestions(prev => ({...prev, [id]: !prev[id]}));
   };
-  
   return (
     <div className="fixed left-0 top-0 h-full w-64 bg-gray-800/95 shadow-2xl flex flex-col overflow-hidden border-r border-gray-700 hidden lg:flex z-30">
       <div className="px-3 py-2 bg-gray-900 border-b border-gray-700">
@@ -180,6 +177,7 @@ const NotebookPanel = ({notas}) => {
   );
 };
 
+// NO se muestra el código oculto, solo los jugadores reales
 const ShareButton = ({sala, onCopyLink}) => (
   <button
     onClick={onCopyLink}
@@ -312,15 +310,8 @@ const App = () => {
   const totalPlayersInLobby = jugadores.length;
   const maxPlayers = 4;
 
-  const manosAMostrar = estado ? [...estado.players] : [];
-  if (estado && estado.mode === "missing" && estado.missing) {
-    manosAMostrar.push({
-      id: 'hidden',
-      name: 'Código Oculto',
-      hand: estado.missing.hand,
-      code: estado.missing.code
-    });
-  }
+  // Solo jugadores, no renders de código oculto en modo 3 jugadores
+  const manosAMostrar = estado ? [...estado.players.filter(p=>p.id!=='hidden')] : [];
 
   return (
     <div className="flex w-full min-h-screen">
@@ -358,7 +349,7 @@ const App = () => {
               <h2 className="text-sm sm:text-base mb-1.5">Turno de: <span className={esMiTurno()?"text-green-400 font-bold":"text-yellow-400 font-bold"}>{estado.players[estado.currentPlayerTurn].name}</span></h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full mb-2 max-w-5xl mx-auto">
                 {manosAMostrar.map((p,i)=> {
-                  const esCodigoOculto = p.id === 'hidden';
+                  const esCodigoOculto = false;
                   return <Mano key={p.id} jugador={p} soyYo={p.id===socketId} esMiTurno={p.id===socketId && esMiTurno()} esCodigoOculto={esCodigoOculto}/>
                 })}
               </div>
